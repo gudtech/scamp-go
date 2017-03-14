@@ -157,6 +157,8 @@ func (msg *Message) toPackets(msgNo uint64) []*Packet {
 		Version:          msg.Version,
 		RequestId:        msg.RequestId, // TODO: nope, can't do this
 		MessageType:      msg.MessageType,
+		Error:            msg.Error,
+		ErrorCode:        msg.Error,
 		Ticket:           msg.GetTicket(),
 		IdentifyingToken: msg.GetIdentifyingToken(),
 	}

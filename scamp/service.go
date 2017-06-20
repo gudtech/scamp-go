@@ -6,11 +6,11 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
+	"io/ioutil"
 	"net"
 	// "encoding/json"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"time"
 
 	"sync"
@@ -58,6 +58,33 @@ type Service struct {
 
 // NewService intializes and returns pointer to a new scamp service
 func NewService(sector string, serviceSpec string, humanName string) (serv *Service, err error) {
+	crtPath := DefaultConfig().ServiceCertPath(serv.humanName)
+	keyPath := DefaultConfig().ServiceKeyPath(serv.humanName)
+
+	if crtPath == nil || keyPath == nil {
+		err = fmt.Errorf("could not find valid crt/key pair for service %s (`%s`,`%s`)", serv.humanName, crtPath, keyPath)
+		return
+	}
+
+	// Load keypair for tls socket library to use
+	keypair, err := tls.LoadX509KeyPair(string(crtPath), string(keyPath))
+	if err != nil {
+		return
+	}
+
+	// Load certificate as bytes
+	pemCert, err := ioutil.ReadFile(string(crtPath))
+	if err != nil {
+		return
+	}
+
+	return NewServiceExplicitCert(sector, serviceSpec, humanName, keypair, pemCert)
+}
+
+// NewServiceExplicitCert intializes and returns pointer to a new scamp service,
+// with an explicitly specified certificate rather than an implicitly discovered one.
+// keypair is a TLS certificate, and pemCert is the raw bytes of an X509 certificate.
+func NewServiceExplicitCert(sector string, serviceSpec string, humanName string, keypair tls.Certificate, pemCert []byte) (serv *Service, err error) {
 	if len(humanName) > 18 {
 		err = fmt.Errorf("name `%s` is too long, must be less than 18 bytes", humanName)
 		return
@@ -71,26 +98,10 @@ func NewService(sector string, serviceSpec string, humanName string) (serv *Serv
 
 	serv.actions = make(map[string]*ServiceAction)
 
-	crtPath := DefaultConfig().ServiceCertPath(serv.humanName)
-	keyPath := DefaultConfig().ServiceKeyPath(serv.humanName)
-
-	if crtPath == nil || keyPath == nil {
-		err = fmt.Errorf("could not find valid crt/key pair for service %s (`%s`,`%s`)", serv.humanName, crtPath, keyPath)
-		return
-	}
-
-	// Load keypair for tls socket library to use
-	serv.cert, err = tls.LoadX509KeyPair(string(crtPath), string(keyPath))
-	if err != nil {
-		return
-	}
+	serv.cert = keypair
 
 	// Load cert in to memory for announce packet writing
-	serv.pemCert, err = ioutil.ReadFile(string(crtPath))
-	if err != nil {
-		return
-	}
-	serv.pemCert = bytes.TrimSpace(serv.pemCert)
+	serv.pemCert = bytes.TrimSpace(pemCert)
 
 	// Finally, get ready for incoming requests
 	err = serv.listen()

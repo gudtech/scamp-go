@@ -71,8 +71,8 @@ func NewService(sector string, serviceSpec string, humanName string) (serv *Serv
 
 	serv.actions = make(map[string]*ServiceAction)
 
-	crtPath := defaultConfig.ServiceCertPath(serv.humanName)
-	keyPath := defaultConfig.ServiceKeyPath(serv.humanName)
+	crtPath := DefaultConfig().ServiceCertPath(serv.humanName)
+	keyPath := DefaultConfig().ServiceKeyPath(serv.humanName)
 
 	if crtPath == nil || keyPath == nil {
 		err = fmt.Errorf("could not find valid crt/key pair for service %s (`%s`,`%s`)", serv.humanName, crtPath, keyPath)

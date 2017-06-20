@@ -52,6 +52,7 @@ func NewConfig() (conf *Config) {
 // SetDefaultConfig sets the global configuration manually if need be.
 // In general, users should use Initialize instead.
 func SetDefaultConfig(conf *Config) {
+	initSCAMPLogger()
 	defaultConfig = conf
 }
 

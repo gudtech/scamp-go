@@ -18,6 +18,7 @@ type Client struct {
 	closedM  sync.Mutex
 
 	sendM sync.Mutex
+	nextRequestId int
 }
 
 func Dial(connspec string) (client *Client, err error) {
@@ -59,6 +60,8 @@ func (client *Client) Send(msg *Message) (responseChan MessageChan, err error) {
 	defer client.sendM.Unlock()
 
 	// Info.Printf("sending message `%d`", msg.RequestId)
+	client.nextRequestId++
+	msg.RequestId = client.nextRequestId
 	err = client.conn.Send(msg)
 	if err != nil {
 		Info.Printf("SCAMP send error: %s", err)

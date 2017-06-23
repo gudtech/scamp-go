@@ -114,18 +114,18 @@ func (conf *Config) ServiceCertPath(serviceName string) (certPath []byte) {
 }
 
 // DiscoveryMulticastIP returns the configured discovery address, or the default one
-// if there is no configured address.
+// if there is no configured address (discovery.multicast_address)
 func (conf *Config) DiscoveryMulticastIP() (ip net.IP) {
 	rawAddr := conf.values["discovery.multicast_address"]
 	if rawAddr != nil {
-		return net.IP(rawAddr)
+		return net.ParseIP(string(rawAddr))
 	}
 
 	return defaultGroupIP
 }
 
 // DiscoveryMulticastPort returns the configured discovery port, or the default one
-// if there is no configured port.
+// if there is no configured port (discovery.port)
 func (conf *Config) DiscoveryMulticastPort() (port int) {
 	portBytes := conf.values["discovery.port"]
 	if portBytes != nil {

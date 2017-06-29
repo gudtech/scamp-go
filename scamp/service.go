@@ -57,25 +57,27 @@ type Service struct {
 }
 
 // NewService intializes and returns pointer to a new scamp service
-func NewService(sector string, serviceSpec string, humanName string) (serv *Service, err error) {
-	crtPath := DefaultConfig().ServiceCertPath(serv.humanName)
-	keyPath := DefaultConfig().ServiceKeyPath(serv.humanName)
+func NewService(sector string, serviceSpec string, humanName string) (*Service, error) {
+	crtPath := DefaultConfig().ServiceCertPath(humanName)
+	keyPath := DefaultConfig().ServiceKeyPath(humanName)
+
+	var err error
 
 	if crtPath == nil || keyPath == nil {
-		err = fmt.Errorf("could not find valid crt/key pair for service %s (`%s`,`%s`)", serv.humanName, crtPath, keyPath)
-		return
+		err = fmt.Errorf("could not find valid crt/key pair for service %s (`%s`,`%s`)", humanName, crtPath, keyPath)
+		return nil, err
 	}
 
 	// Load keypair for tls socket library to use
 	keypair, err := tls.LoadX509KeyPair(string(crtPath), string(keyPath))
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// Load certificate as bytes
 	pemCert, err := ioutil.ReadFile(string(crtPath))
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	return NewServiceExplicitCert(sector, serviceSpec, humanName, keypair, pemCert)

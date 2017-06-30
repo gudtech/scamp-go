@@ -78,7 +78,7 @@ func IPForAnnouncePacket() (ip net.IP, err error) {
 
 	for _, inf := range infs {
 		if inf.Flags&net.FlagLoopback != 0 {
-			// continue
+			continue
 		}
 
 		addrs, err := inf.Addrs()

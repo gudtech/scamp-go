@@ -67,7 +67,7 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 		return nil, fmt.Errorf("sscanf error: %s", err.Error)
 	}
 
-	Trace.Printf("reading pkt: (%d, `%s`)", pkt.msgNo, pktTypeBytes)
+	Trace.Printf("reading pkt: (%v, `%s`)", pkt.msgNo, pktTypeBytes)
 
 	if bytes.Equal(header_bytes, pktTypeBytes) {
 		pkt.packetType = HEADER
@@ -84,7 +84,7 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 	}
 
 	// Use the msg len to consume the rest of the connection
-	Trace.Printf("(%d) reading rest of packet body (%d bytes)", packetSeenSinceBoot, bodyBytesNeeded)
+	Trace.Printf("(%v) reading rest of packet body (%d bytes)", packetSeenSinceBoot, bodyBytesNeeded)
 	pkt.body = make([]byte, bodyBytesNeeded)
 	bytesRead, err := io.ReadFull(reader, pkt.body)
 	if err != nil {

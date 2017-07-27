@@ -14,6 +14,7 @@ import (
 type IncomingMsgNo uint64
 type OutgoingMsgNo uint64
 
+// Connection a scamp connection
 type Connection struct {
 	conn        *tls.Conn
 	Fingerprint string
@@ -41,7 +42,7 @@ type Connection struct {
 // TODO: You must use the *connection.Fingerprint to verify the
 // remote host
 func DialConnection(connspec string) (conn *Connection, err error) {
-	Info.Printf("dialing connection to `%s`", connspec)
+	Info.Printf("Dialing connection to `%s`", connspec)
 	config := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -51,9 +52,8 @@ func DialConnection(connspec string) (conn *Connection, err error) {
 	if err != nil {
 		return
 	}
-	Info.Printf("Past TLS")
+	Trace.Printf("Past TLS")
 	conn = NewConnection(tlsConn, "client")
-
 	return
 }
 
@@ -121,15 +121,21 @@ PacketReaderLoop:
 		pkt, err = ReadPacket(conn.readWriter)
 		if err != nil {
 			if strings.Contains(err.Error(), "readline error: EOF") {
+				Trace.Printf("%s", err)
 			} else if strings.Contains(err.Error(), "use of closed network connection") {
+				Trace.Printf("%s", err)
 			} else if strings.Contains(err.Error(), "connection reset by peer") {
+				Trace.Printf("%s", err)
 			} else {
+				Trace.Printf("%s", err)
 				Error.Printf("err: %s", err)
 			}
 			break PacketReaderLoop
 		}
+
 		err = conn.routePacket(pkt)
 		if err != nil {
+			Trace.Printf("breaking PacketReaderLoop")
 			break PacketReaderLoop
 		}
 	}
@@ -143,7 +149,6 @@ PacketReaderLoop:
 
 func (conn *Connection) routePacket(pkt *Packet) (err error) {
 	var msg *Message
-
 	Trace.Printf("routing packet...")
 	switch {
 	case pkt.packetType == HEADER:
@@ -195,6 +200,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 
 		msg.Write(pkt.body)
 		conn.ackBytes(IncomingMsgNo(pkt.msgNo), msg.BytesWritten())
+
 	case pkt.packetType == EOF:
 		Trace.Printf("EOF")
 		// Deliver message
@@ -207,15 +213,40 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 
 		delete(conn.pktToMsg, IncomingMsgNo(pkt.msgNo))
 		Trace.Printf("Delivering message number %d up the stack", pkt.msgNo)
+		Trace.Printf("Adding message to channel:")
 		conn.msgs <- msg
+
 	case pkt.packetType == TXERR:
 		Trace.Printf("TXERR")
+
+		msg = conn.pktToMsg[IncomingMsgNo(pkt.msgNo)]
+		if msg == nil {
+			err = fmt.Errorf("cannot process EOF for unknown msgno %d", pkt.msgNo)
+			Error.Printf("err: `%s`", err)
+			return
+		}
+		//get the error
+		if len(pkt.body) > 0 {
+			Trace.Printf("getting error from packet body: %s", pkt.body)
+			errMessage := string(pkt.body)
+			msg.Error = errMessage
+		} else {
+			msg.Error = "There was an unkown error with the connection"
+		}
+		msg.Write(pkt.body)
+		conn.ackBytes(IncomingMsgNo(pkt.msgNo), msg.BytesWritten())
+
 		delete(conn.pktToMsg, IncomingMsgNo(pkt.msgNo))
 		conn.msgs <- msg
+
+		// Info.Printf("Sending err over channel")
+		// conn.errors <- err
 		// TODO: add 'error' path on connection
 		// Kill connection
+		// conn.Close() // is this the correct way to kill connection?
+
 	case pkt.packetType == ACK:
-		Trace.Printf("ACK `%d` for msgno %d", pkt.msgNo, len(pkt.body))
+		Trace.Printf("ACK `%v` for msgno %v", len(pkt.body), pkt.msgNo)
 		// panic("Xavier needs to support this")
 		// TODO: Add bytes to message stream tally
 	}
@@ -268,6 +299,7 @@ func (conn *Connection) Send(msg *Message) (err error) {
 }
 
 func (conn *Connection) ackBytes(msgno IncomingMsgNo, unackedByteCount uint64) (err error) {
+	Trace.Printf("ACKing msg %v, unacked bytes = %v", msgno, unackedByteCount)
 	conn.readWriterLock.Lock()
 	defer conn.readWriterLock.Unlock()
 

@@ -49,6 +49,9 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 	var bodyBytesNeeded int
 
 	hdrBytes, _, err := reader.ReadLine()
+	if err != nil {
+		return
+	}
 
 	// if enableWriteTee {
 	// 	writeTeeTarget.file.Write([]byte("read: "))

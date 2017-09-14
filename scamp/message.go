@@ -12,7 +12,7 @@ type Message struct {
 	Envelope envelopeFormat
 	// TODO: how do RequestId's fit in again? NOTE: from (SCAMP repo) -"Set to 18 random base64 bytes"
 	RequestId        int
-	Version          int64
+	Version          int
 	MessageType      messageType
 	packets          []*Packet
 	bytesWritten     uint64
@@ -58,7 +58,7 @@ func (msg *Message) SetEnvelope(env envelopeFormat) {
 	msg.Envelope = env
 }
 
-func (msg *Message) SetVersion(version int64) {
+func (msg *Message) SetVersion(version int) {
 	msg.Version = version
 }
 

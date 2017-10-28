@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 )
@@ -48,9 +47,18 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 	var pktTypeBytes []byte
 	var bodyBytesNeeded int
 
+	//TODO realine is problematic here, need to replace. From the godocs:
+	// $ godoc bufio ReadLine
+	// ...
+	// 	ReadLine is a low-level line-reading primitive. Most callers should use
+	// 	ReadBytes('\n') or ReadString('\n') instead or use a Scanner.
+	// ...
+	// 	The text returned from ReadLine does not include the line end ("\r\n" or
+	// 	"\n"). No indication or error is given if the input ends without a final
+	// 	line end.
 	hdrBytes, _, err := reader.ReadLine()
 	if err != nil {
-		return
+		return nil, fmt.Errorf("readline error: %s", err)
 	}
 
 	// if enableWriteTee {
@@ -59,15 +67,11 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 	// 	writeTeeTarget.file.Write([]byte("\n"))
 	// }
 
-	if err != nil {
-		return nil, fmt.Errorf("readline error: %s", err)
-	}
-
 	hdrValsRead, err := fmt.Sscanf(string(hdrBytes), "%s %d %d", &pktTypeBytes, &(pkt.msgNo), &bodyBytesNeeded)
 	if hdrValsRead != 3 {
 		return nil, fmt.Errorf("header must have 3 parts")
 	} else if err != nil {
-		return nil, fmt.Errorf("sscanf error: %s", err.Error)
+		return nil, fmt.Errorf("sscanf error: %s", err)
 	}
 
 	Trace.Printf("reading pkt: (%v, `%s`)", pkt.msgNo, pktTypeBytes)
@@ -142,7 +146,7 @@ func (pkt *Packet) Write(writer io.Writer) (written int, err error) {
 	case ACK:
 		packetTypeBytes = ack_bytes
 	default:
-		err = errors.New(fmt.Sprintf("unknown packetType `%d`", pkt.packetType))
+		err = fmt.Errorf(fmt.Sprintf("unknown packetType `%d`", pkt.packetType))
 		Error.Printf("unknown packetType `%d`", pkt.packetType)
 		return
 	}

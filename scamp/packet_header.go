@@ -20,15 +20,15 @@ const (
 // Serialized to JSON and stuffed in the 'header' property
 // of each packet
 type PacketHeader struct {
-	Action   string         `json:"action"`   // request
-	Envelope envelopeFormat `json:"envelope"` // request
-	Error string            `json:"error,omitempty"`            // reply
-	ErrorCode string        `json:"error_code,omitempty"`   // reply
-	RequestId int           `json:"request_id"` // both
-	Ticket string           `json:"ticket"`           // request
-	IdentifyingToken string `json:"identifying_token"`
-	MessageType messageType `json:"type"`    // both
-	Version     int64       `json:"version"` // request
+	Action           string         `json:"action"`               // request
+	Envelope         envelopeFormat `json:"envelope"`             // request
+	Error            string         `json:"error,omitempty"`      // reply
+	ErrorCode        string         `json:"error_code,omitempty"` // reply
+	RequestId        int            `json:"request_id"`           // both
+	Ticket           string         `json:"ticket"`               // request
+	IdentifyingToken string         `json:"identifying_token"`
+	MessageType      messageType    `json:"type"`    // both
+	Version          int            `json:"version"` // request
 }
 
 var envelope_json_bytes = []byte(`"json"`)
@@ -66,7 +66,7 @@ type messageType int
 
 const (
 	_ = iota
-	MESSAGE_TYPE_REQUEST 
+	MESSAGE_TYPE_REQUEST
 	MESSAGE_TYPE_REPLY
 )
 
@@ -96,7 +96,7 @@ func (msgType *messageType) UnmarshalJSON(incoming []byte) (err error) {
 		Error.Printf(fmt.Sprintf("unknown message type `%s`", incoming))
 		err = errors.New(fmt.Sprintf("unknown message type `%s`", incoming))
 	}
-	
+
 	return
 }
 

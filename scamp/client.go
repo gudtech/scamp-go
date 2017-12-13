@@ -137,7 +137,6 @@ forLoop:
 				client.openRepliesLock.Unlock()
 
 				replyChan <- message
-				break forLoop
 			} else {
 				Trace.Printf("Could not handle msg, it's neither req or reply. Skipping.")
 				Error.Printf("Could not handle msg, it's neither req or reply. Skipping.")

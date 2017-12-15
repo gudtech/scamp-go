@@ -42,7 +42,7 @@ type Connection struct {
 // TODO: You must use the *connection.Fingerprint to verify the
 // remote host
 func DialConnection(connspec string) (conn *Connection, err error) {
-	Info.Printf("Dialing connection to `%s`", connspec)
+	Trace.Printf("Dialing connection to `%s`", connspec)
 	config := &tls.Config{
 		InsecureSkipVerify: true,
 	}

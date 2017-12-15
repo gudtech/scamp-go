@@ -1,20 +1,20 @@
 package scamp
 
 import (
-  "errors"
-  "bufio"
-  "bytes"
-  "fmt"
-  "sync"
-  "os"
+	"bufio"
+	"bytes"
+	"errors"
+	"fmt"
+	"os"
+	"sync"
 )
 
 type ServiceCache struct {
 	path string
 
-	cacheM sync.Mutex
-	identIndex map[string]*ServiceProxy
-	actionIndex map[string][]*ServiceProxy
+	cacheM        sync.Mutex
+	identIndex    map[string]*ServiceProxy
+	actionIndex   map[string][]*ServiceProxy
 	verifyRecords bool
 }
 
@@ -28,25 +28,25 @@ func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	return
 }
 
-func (cache *ServiceCache) DisableRecordVerification() (){
+func (cache *ServiceCache) DisableRecordVerification() {
 	cache.verifyRecords = true
 }
 
-func (cache *ServiceCache) EnableRecordVerification() (){
+func (cache *ServiceCache) EnableRecordVerification() {
 	cache.verifyRecords = false
 }
 
-func (cache *ServiceCache) Store( instance *ServiceProxy ) {
+func (cache *ServiceCache) Store(instance *ServiceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
-	cache.storeNoLock( instance )
+	cache.storeNoLock(instance)
 
 	return
 }
 
-func (cache *ServiceCache) storeNoLock( instance *ServiceProxy ) {
-	_,ok := cache.identIndex[instance.ident]
+func (cache *ServiceCache) storeNoLock(instance *ServiceProxy) {
+	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		cache.identIndex[instance.ident] = instance
 	} else {
@@ -56,19 +56,19 @@ func (cache *ServiceCache) storeNoLock( instance *ServiceProxy ) {
 		cache.identIndex[instance.ident] = instance
 	}
 
-	for _,class := range instance.classes {
-		for _,action := range class.actions {
-			for _,protocol := range instance.protocols {
+	for _, class := range instance.classes {
+		for _, action := range class.actions {
+			for _, protocol := range instance.protocols {
 				mungedName := fmt.Sprintf("%s:%s.%s~%d#%s", instance.sector, class.className, action.actionName, action.version, protocol)
 
-				serviceProxies,ok := cache.actionIndex[mungedName]
+				serviceProxies, ok := cache.actionIndex[mungedName]
 				if ok {
 					serviceProxies = append(serviceProxies, instance)
 				} else {
-					serviceProxies = []*ServiceProxy{ instance }
+					serviceProxies = []*ServiceProxy{instance}
 				}
 
-				cache.actionIndex[mungedName] = serviceProxies				
+				cache.actionIndex[mungedName] = serviceProxies
 			}
 		}
 	}
@@ -76,31 +76,31 @@ func (cache *ServiceCache) storeNoLock( instance *ServiceProxy ) {
 	return
 }
 
-func (cache *ServiceCache) removeNoLock( instance *ServiceProxy ) (err error) {
-	_,ok := cache.identIndex[instance.ident]
+func (cache *ServiceCache) removeNoLock(instance *ServiceProxy) (err error) {
+	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		err = fmt.Errorf("tried removing an ident which was not being tracked: %s", instance.ident)
 		return
 	}
 
-	delete(cache.identIndex,instance.ident)
+	delete(cache.identIndex, instance.ident)
 
 	return
 }
 
 // TODO: in a perfect world we'd do upserts to the cache
 // and sweep for stale proxy definitions.
-func (cache *ServiceCache) clearNoLock( ) ( err error ) {
+func (cache *ServiceCache) clearNoLock() (err error) {
 	cache.identIndex = make(map[string]*ServiceProxy)
 
 	return
 }
 
-func (cache *ServiceCache) Retrieve( ident string ) ( instance *ServiceProxy ) {
+func (cache *ServiceCache) Retrieve(ident string) (instance *ServiceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
-	instance,ok := cache.identIndex[ident]
+	instance, ok := cache.identIndex[ident]
 	if !ok {
 		instance = nil
 		return
@@ -130,14 +130,13 @@ func (cache *ServiceCache) All() (proxies []*ServiceProxy) {
 	proxies = make([]*ServiceProxy, size)
 
 	index := 0
-	for _,proxy := range cache.identIndex {
+	for _, proxy := range cache.identIndex {
 		proxies[index] = proxy
 		index += 1
 	}
 
 	return
 }
-
 
 var sep = []byte(`%%%`)
 var newline = []byte("\n")
@@ -146,30 +145,30 @@ func (cache *ServiceCache) Refresh() (err error) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
-	stat,err := os.Stat(cache.path)
+	stat, err := os.Stat(cache.path)
 	if err != nil {
 		return
 	} else if stat.IsDir() {
 		err = fmt.Errorf("cannot use cache path: `%s` is a directory", cache.path)
 		return
 	}
-	Info.Printf("mtime: %s\n",stat.ModTime())
+	Trace.Printf("mtime: %s\n", stat.ModTime())
 
-	cacheHandle,err := os.Open(cache.path)
+	cacheHandle, err := os.Open(cache.path)
 	if err != nil {
 		return
 	}
 
-  s := bufio.NewScanner(cacheHandle)
-  err = cache.DoScan(s)
-  if err != nil {
-  	return
-  }
+	s := bufio.NewScanner(cacheHandle)
+	err = cache.DoScan(s)
+	if err != nil {
+		return
+	}
 
 	return
 }
 
-func (cache *ServiceCache)DoScan(s *bufio.Scanner) (err error) {
+func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 	cache.clearNoLock()
 
 	// var entries int = 0
@@ -185,7 +184,7 @@ func (cache *ServiceCache)DoScan(s *bufio.Scanner) (err error) {
 			}
 		}
 		if !didScan {
-			break;
+			break
 		}
 		s.Scan() // consume the separator
 
@@ -211,7 +210,7 @@ func (cache *ServiceCache)DoScan(s *bufio.Scanner) (err error) {
 			certBuffer.Write(s.Bytes())
 			certBuffer.Write(newline)
 		}
-		certRaw = certBuffer.Bytes()[0:len(certBuffer.Bytes())-1]
+		certRaw = certBuffer.Bytes()[0 : len(certBuffer.Bytes())-1]
 
 		var sigBuffer bytes.Buffer
 		for s.Scan() {
@@ -224,14 +223,14 @@ func (cache *ServiceCache)DoScan(s *bufio.Scanner) (err error) {
 			sigBuffer.Write(s.Bytes())
 			sigBuffer.Write(newline)
 		}
-		sigRaw = sigBuffer.Bytes()[0:len(sigBuffer.Bytes())-1]
+		sigRaw = sigBuffer.Bytes()[0 : len(sigBuffer.Bytes())-1]
 
 		// Error.Printf("`%s`", sigRaw)
 
 		// Use those extracted value to make an instance
-		serviceProxy,err := NewServiceProxy(classRecordsRaw, certRaw, sigRaw)
+		serviceProxy, err := NewServiceProxy(classRecordsRaw, certRaw, sigRaw)
 		if err != nil {
-			return fmt.Errorf("NewServiceProxy: %s",err)
+			return fmt.Errorf("NewServiceProxy: %s", err)
 		}
 
 		// Validating is a very expensive operation in the benchmarks
@@ -254,9 +253,9 @@ func (cache *ServiceCache)DoScan(s *bufio.Scanner) (err error) {
 	return
 }
 
-
 var startCert = []byte(`-----BEGIN CERTIFICATE-----`)
 var endCert = []byte(`-----END CERTIFICATE-----`)
+
 func scanCertficates(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	var i int
 
@@ -265,14 +264,14 @@ func scanCertficates(data []byte, atEOF bool) (advance int, token []byte, err er
 	}
 
 	// assert cert start line
-	if i = bytes.Index(data, startCert); i == -1{
+	if i = bytes.Index(data, startCert); i == -1 {
 		return 0, nil, nil
 	}
 
 	// assert end line, consume if present
 	if i = bytes.Index(data, endCert); i >= 0 {
-		return i+len(endCert), data[0:i+len(endCert)], nil
+		return i + len(endCert), data[0 : i+len(endCert)], nil
 	} else {
-		return 0, nil ,nil
+		return 0, nil, nil
 	}
 }

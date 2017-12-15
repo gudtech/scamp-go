@@ -84,12 +84,12 @@ func (client *Client) Close() {
 	client.closedM.Lock()
 	defer client.closedM.Unlock()
 	if client.isClosed {
-		Info.Printf("client already closed. skipping shutdown.")
+		Trace.Printf("client already closed. skipping shutdown.")
 		return
 	}
 
-	Info.Printf("closing client...")
-	Info.Printf("closing client conn...")
+	Trace.Printf("closing client...")
+	Trace.Printf("closing client conn...")
 	client.conn.Close()
 
 	// // Notify wrapper service that we're dead

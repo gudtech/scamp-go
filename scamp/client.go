@@ -118,7 +118,7 @@ func (client *Client) Close() {
 		client.serv.RemoveClient(client)
 	}
 
-	Trace.Printf("marking client as closed...")
+	// Trace.Printf("marking client as closed...")
 	client.isClosed = true
 }
 
@@ -144,11 +144,10 @@ forLoop:
 				break forLoop
 			}
 			if message == nil {
-				Error.Printf("nil message received from <-client.conn.msgs!")
 				continue
 			}
 
-			Trace.Printf("Splitting incoming message to reqs and reps")
+			// Trace.Printf("Splitting incoming message to reqs and reps")
 
 			if message.MessageType == MessageTypeRequest {
 				// interesting things happen if there are outstanding messages
@@ -158,7 +157,7 @@ forLoop:
 				client.openRepliesLock.Lock()
 				replyChan = client.openReplies[message.RequestID]
 				if replyChan == nil {
-					Error.Printf("got an unexpected reply for requestId: %d. Skipping.", message.RequestID)
+					// Error.Printf("got an unexpected reply for requestId: %d. Skipping.", message.RequestID)
 					client.openRepliesLock.Unlock()
 					continue
 				}

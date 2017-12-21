@@ -54,7 +54,6 @@ func (sp *serviceProxy) GetClient() (client *Client, err error) {
 
 	//TODO: what really needs to happen is the removal of closed client from sp.client. Checking `sp.client.isClosed` is a bandaid
 	if sp.client == nil || sp.client.isClosed {
-		Warning.Printf("ServiceProxy (%s) client or connection is nil or closed, creating new client\n", sp.ident)
 		var url *u.URL
 		url, err = u.Parse(sp.connspec)
 		if err != nil {
@@ -191,7 +190,7 @@ func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
 
 	timestamp, err := getTimeOfDay()
 	if err != nil {
-		Error.Printf("error with high-res timestamp: `%s`", err)
+		// Error.Printf("error with high-res timestamp: `%s`", err)
 		return nil
 	}
 	sp.timestamp = timestamp
@@ -261,7 +260,7 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 			var extension ServiceProxyDiscoveryExtension
 			err = json.Unmarshal(*rawProtocol, &extension)
 			if err != nil {
-				fmt.Printf("could not parse rawProtocol: %s\n", string(*rawProtocol))
+				Error.Printf("could not parse rawProtocol: %s\n", string(*rawProtocol))
 				continue
 			}
 

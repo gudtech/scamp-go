@@ -7,8 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-
-	"github.com/senseijack/scamp-go/scamp"
 )
 
 func main() {
@@ -44,7 +42,7 @@ func main() {
 func doFakeDiscoveryCache(keyPath, certPath, announcePath string) {
 	keyRawBytes, err := ioutil.ReadFile(keyPath)
 	if err != nil {
-		scamp.Error.Fatalf("could not read key at %s", keyPath)
+		Error.Fatalf("could not read key at %s", keyPath)
 	}
 
 	block, _ := pem.Decode(keyRawBytes)
@@ -65,7 +63,7 @@ func doFakeDiscoveryCache(keyPath, certPath, announcePath string) {
 	if err != nil {
 		Error.Fatalf("could not read announce data from %s", announcePath)
 	}
-	announceSig, err := scamp.SignSHA256([]byte(announceData), privKey)
+	announceSig, err := signSHA256([]byte(announceData), privKey)
 	if err != nil {
 		Error.Fatalf("could not sign announce data: %s", err)
 	}

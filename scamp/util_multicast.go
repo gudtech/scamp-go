@@ -24,14 +24,14 @@ func localMulticastPacketConn() (conn *ipv4.PacketConn, err error) {
 	// Had issues with running multiple services (heka and sdk_service) so I'm
 	// going to the let the OS pick the port. `127.0.0.1:5556` used to work! -XRL
 	localMulticastSpec := "127.0.0.1:"
-	Trace.Printf("announce binding to port: `%s`", localMulticastSpec)
+	// Trace.Printf("announce binding to port: `%s`", localMulticastSpec)
 
 	udpConn, err := net.ListenPacket("udp", localMulticastSpec)
 	if err != nil {
 		Error.Printf("could not listen to `%s`", localMulticastSpec)
 		return
 	}
-	Trace.Printf("udpConn.LocalAddr(): %s", udpConn.LocalAddr())
+	// Trace.Printf("udpConn.LocalAddr(): %s", udpConn.LocalAddr())
 
 	conn = ipv4.NewPacketConn(udpConn)
 	return
@@ -60,7 +60,7 @@ func getIPForAnnouncePacket() (ip net.IP, err error) {
 				Error.Printf("ParseCIDR err: `%s`\n", err)
 				continue
 			} else if ip.To4() == nil {
-				Trace.Printf("IP is not IPv4: `%s`\n", ip)
+				// Trace.Printf("IP is not IPv4: `%s`\n", ip)
 				continue
 			}
 			break

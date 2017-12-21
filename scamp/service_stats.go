@@ -34,5 +34,5 @@ forLoop:
 		}
 	}
 
-	Trace.Printf("exiting PrintStatsLoop")
+	// Trace.Printf("exiting PrintStatsLoop")
 }

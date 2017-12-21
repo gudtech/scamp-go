@@ -33,8 +33,6 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	var responseChan chan *Message
 
 	for _, serviceProxy := range serviceProxies {
-		Info.Printf("service proxy %s\n", serviceProxy.ident)
-
 		client, err := serviceProxy.GetClient()
 		if err != nil {
 			continue

@@ -156,7 +156,7 @@ func (cache *serviceCache) Refresh() (err error) {
 		err = fmt.Errorf("cannot use cache path: `%s` is a directory", cache.path)
 		return
 	}
-	Trace.Printf("mtime: %s\n", stat.ModTime())
+	// Trace.Printf("mtime: %s\n", stat.ModTime())
 
 	cacheHandle, err := os.Open(cache.path)
 	if err != nil {

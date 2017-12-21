@@ -115,7 +115,7 @@ func NewServiceExplicitCert(sector string, serviceSpec string, humanName string,
 	serv.statsCloseChan = make(chan bool)
 	// go PrintStatsLoop(serv, time.Duration(15)*time.Second, serv.statsCloseChan)
 
-	Trace.Printf("done initializing service")
+	// Trace.Printf("done initializing service")
 
 	return
 }
@@ -138,7 +138,7 @@ func (serv *Service) listen() (err error) {
 	// TODO: get listenerIP to return 127.0.0.1 or something other than '::'/nil
 	// serv.listenerIP = serv.listener.Addr().(*net.TCPAddr).IP
 	serv.listenerIP, err = getIPForAnnouncePacket()
-	Trace.Printf("serv.listenerIP: `%s`", serv.listenerIP)
+	// Trace.Printf("serv.listenerIP: `%s`", serv.listenerIP)
 
 	if err != nil {
 		return
@@ -170,10 +170,10 @@ forLoop:
 	for {
 		netConn, err := serv.listener.Accept()
 		if err != nil {
-			Info.Printf("exiting service Run(): `%s`", err)
+			// Info.Printf("exiting service Run(): `%s`", err)
 			break forLoop
 		}
-		Trace.Printf("accepted new connection...")
+		// Trace.Printf("accepted new connection...")
 
 		//var tlsConn (*tls.Conn) = (netConn).(*tls.Conn)
 		tlsConn := (netConn).(*tls.Conn)
@@ -194,7 +194,7 @@ forLoop:
 		atomic.AddUint64(&serv.connectionsAccepted, 1)
 	}
 
-	Info.Printf("closing all registered objects")
+	// Info.Printf("closing all registered objects")
 
 	serv.clientsM.Lock()
 	for _, client := range serv.clients {
@@ -208,7 +208,7 @@ forLoop:
 //Handle handles incoming client messages received via the cient MessageChan
 func (serv *Service) Handle(client *Client) {
 	var action *ServiceAction
-	Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
+	//Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
 HandlerLoop:
 	for {
 		select {
@@ -219,7 +219,7 @@ HandlerLoop:
 			action = serv.actions[msg.Action]
 
 			if action != nil {
-				Info.Printf("handling action %s\n", action.crudTags)
+				// Info.Printf("handling action %s\n", action.crudTags)
 				action.callback(msg, client)
 			} else {
 				Error.Printf("do not know how to handle action `%s`", msg.Action)

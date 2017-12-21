@@ -44,7 +44,7 @@ func (announcer *DiscoveryAnnouncer) Track(serv *Service) {
 // interval configured in defaultAnnounceInterval
 // TODO: make defaultAnnounceInterval configurable in the service (rather than hardcoded in scamp)
 func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
-	Trace.Printf("starting announcer loop")
+	// Trace.Printf("starting announcer loop")
 
 	for {
 		select {

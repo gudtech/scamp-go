@@ -21,12 +21,12 @@ func TestServiceHandlesRequest(t *testing.T) {
 
 }
 
-func spawnTestService(hasStopped (chan bool)) (service *Service) {
-	service,err := NewService("test", "127.0.0.1:40400", "helloworld")
+func spawnTestService(hasStopped chan bool) (service *Service) {
+	service, err := NewService("test", "127.0.0.1:40400", "helloworld")
 	if err != nil {
 		Error.Fatalf("error creating new service: `%s`", err)
 	}
-	service.Register("helloworld.hello", func(message *Message, client *Client){
+	service.Register("helloworld.hello", func(message *Message, client *Client) {
 		panic("what")
 		// if len(req.Blob) > 0 {
 		// 	Info.Printf("helloworld had data: %s", req.Blob)
@@ -44,7 +44,7 @@ func spawnTestService(hasStopped (chan bool)) (service *Service) {
 		// Trace.Printf("successfully responded to hello world")
 	})
 
-	go func(){
+	go func() {
 		service.Run()
 		hasStopped <- true
 	}()
@@ -59,10 +59,10 @@ func connectToTestService(t *testing.T) {
 		Error.Fatalf("could not connect! `%s`\n", err)
 	}
 
-	responseChan,err := client.Send(&Message{
-		Action:         "helloworld.hello",
-		Envelope: ENVELOPE_JSON,
-		Version:        1,
+	responseChan, err := client.Send(&Message{
+		Action:   "helloworld.hello",
+		Envelope: EnvelopeJSON,
+		Version:  1,
 	})
 	if err != nil {
 		Error.Fatalf("error initiating session: `%s`", err)
@@ -85,20 +85,20 @@ func connectToTestService(t *testing.T) {
 // 1. Copying `Service` properties to new `ServiceProxy`
 // 2. Marshaling `ServiceProxy` to announce format
 func TestServiceToProxyMarshal(t *testing.T) {
-	s := Service {
-		serviceSpec: "123",
-		humanName: "a-cool-name",
-		name: "a-cool-name-1234",
-		listenerIP: net.ParseIP("174.10.10.10"),
+	s := Service{
+		serviceSpec:  "123",
+		humanName:    "a-cool-name",
+		name:         "a-cool-name-1234",
+		listenerIP:   net.ParseIP("174.10.10.10"),
 		listenerPort: 30100,
-		actions: make(map[string]*ServiceAction),
+		actions:      make(map[string]*ServiceAction),
 	}
 	s.Register("Logging.info", func(_ *Message, _ *Client) {
 	})
 
-	serviceProxy := ServiceAsServiceProxy(&s)
+	serviceProxy := serviceAsServiceProxy(&s)
 	serviceProxy.timestamp = 10
-	b,err := json.Marshal(&serviceProxy)
+	b, err := json.Marshal(&serviceProxy)
 	if err != nil {
 		t.Fatalf("could not serialize service proxy")
 	}
@@ -114,32 +114,32 @@ func TestFullServiceMarshal(t *testing.T) {
 	//   root repo `scamp-go` has a sibling folder called `scamp-go-workspace` where `scamp-go`
 	//   is symlinked in as such: ../scamp-go-workspace/src/github.com/gudtech/scamp-go
 	// it's crazy, I know. thanks GOPATH.
-	cert, err := tls.LoadX509KeyPair( "./../../scamp-go/fixtures/sample.crt", "./../../scamp-go/fixtures/sample.key" )
+	cert, err := tls.LoadX509KeyPair("./../../scamp-go/fixtures/sample.crt", "./../../scamp-go/fixtures/sample.key")
 	if err != nil {
 		t.Fatalf("could not load fixture keypair: `%s`", err)
 	}
 
-	encodedCert,err := ioutil.ReadFile("/Users/xavierlange/code/gudtech/scamp-go/fixtures/sample.crt")
+	encodedCert, err := ioutil.ReadFile("/Users/xavierlange/code/gudtech/scamp-go/fixtures/sample.crt")
 	if err != nil {
 		t.Fatalf("could not load fixture certificate")
 	}
 	encodedCert = bytes.TrimSpace(encodedCert)
 
-	s := Service {
-		serviceSpec: "123",
-		humanName: "a-cool-name",
-		name: "a-cool-name-1234",
-		listenerIP: net.ParseIP("174.10.10.10"),
+	s := Service{
+		serviceSpec:  "123",
+		humanName:    "a-cool-name",
+		name:         "a-cool-name-1234",
+		listenerIP:   net.ParseIP("174.10.10.10"),
 		listenerPort: 30100,
-		actions: make(map[string]*ServiceAction),
-		pemCert: encodedCert,
-		cert: cert,
+		actions:      make(map[string]*ServiceAction),
+		pemCert:      encodedCert,
+		cert:         cert,
 	}
 	s.Register("Logging.info", func(_ *Message, _ *Client) {
 	})
 
 	// TODO: confirm output of marshalling the payload.
-	b,err := s.MarshalText()
+	b, err := s.MarshalText()
 	if err != nil {
 		t.Fatalf("unexpected error serializing service: `%s`", err)
 	}

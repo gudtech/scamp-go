@@ -21,45 +21,45 @@ jgOS2Ol4gq8/QdNejP5J4wsCAQM=
 var fullTicketBytes = []byte(`1,3063,21,1438783424,660,1+20+31+32+34+35+36+37+38+39+40+41+42+43+44+46+47+48+50+53+56+59+60+61+62+67+68+69+70+71+75+76+80+81+82+86+87+88+102+104+105+107+109+110+122+124,PcFNyWjoz_iiVMgEe8I3IBfzSlUcqUGtsuN7536PTiBW7KDovIqCaSi_8nZWcj-j1dfbQRA8mftwYUWMhhZ4DD78-BH8MovNVucbmTmf2Wzbx9bsI-dmUADY5Q2ol4qDXG4YQJeyZ6f6F9s_1uxHTH456QcsfNxFWh18ygo5_DVmQQSXCHN7EXM5M-u2DSol9MSROeBolYnHZyE093LgQ2veWQREbrwg5Fcp2VZ6VqIC7yu6f_xYHEvU0-ZsSSRMAMUmhLNhmFM4KDjl8blVgC134z7XfCTDDjCDiynSL6b-D-`)
 
 func TestSplitTicketPayload(t *testing.T) {
-	ticketBytes,sigBytes := splitTicketPayload(fullTicketBytes)
+	ticketBytes, sigBytes := splitTicketPayload(fullTicketBytes)
 
-	if(!bytes.Equal(ticketBytes, []byte("1,3063,21,1438783424,660,1+20+31+32+34+35+36+37+38+39+40+41+42+43+44+46+47+48+50+53+56+59+60+61+62+67+68+69+70+71+75+76+80+81+82+86+87+88+102+104+105+107+109+110+122+124"))) {
+	if !bytes.Equal(ticketBytes, []byte("1,3063,21,1438783424,660,1+20+31+32+34+35+36+37+38+39+40+41+42+43+44+46+47+48+50+53+56+59+60+61+62+67+68+69+70+71+75+76+80+81+82+86+87+88+102+104+105+107+109+110+122+124")) {
 		t.Errorf("did not extract ticketBytes. got `%s`", ticketBytes)
 	}
-	if(!bytes.Equal(sigBytes, []byte("PcFNyWjoz_iiVMgEe8I3IBfzSlUcqUGtsuN7536PTiBW7KDovIqCaSi_8nZWcj-j1dfbQRA8mftwYUWMhhZ4DD78-BH8MovNVucbmTmf2Wzbx9bsI-dmUADY5Q2ol4qDXG4YQJeyZ6f6F9s_1uxHTH456QcsfNxFWh18ygo5_DVmQQSXCHN7EXM5M-u2DSol9MSROeBolYnHZyE093LgQ2veWQREbrwg5Fcp2VZ6VqIC7yu6f_xYHEvU0-ZsSSRMAMUmhLNhmFM4KDjl8blVgC134z7XfCTDDjCDiynSL6b-D-"))) {
+	if !bytes.Equal(sigBytes, []byte("PcFNyWjoz_iiVMgEe8I3IBfzSlUcqUGtsuN7536PTiBW7KDovIqCaSi_8nZWcj-j1dfbQRA8mftwYUWMhhZ4DD78-BH8MovNVucbmTmf2Wzbx9bsI-dmUADY5Q2ol4qDXG4YQJeyZ6f6F9s_1uxHTH456QcsfNxFWh18ygo5_DVmQQSXCHN7EXM5M-u2DSol9MSROeBolYnHZyE093LgQ2veWQREbrwg5Fcp2VZ6VqIC7yu6f_xYHEvU0-ZsSSRMAMUmhLNhmFM4KDjl8blVgC134z7XfCTDDjCDiynSL6b-D-")) {
 		t.Errorf("did not extract the sigBytes")
 	}
 }
 
 func TestReadTicketNoVerify(t *testing.T) {
-	ticket,err := ReadTicketNoVerify(fullTicketBytes)
-	if (err != nil){
+	ticket, err := readTicketNoVerify(fullTicketBytes)
+	if err != nil {
 		t.Errorf("failed to parse: `%s`", err)
 	}
 
-	if (ticket.Version != 1){
+	if ticket.Version != 1 {
 		t.Errorf("wrong Version")
 	}
 
-	if (ticket.UserId != 3063) {
+	if ticket.UserID != 3063 {
 		t.Errorf("wrong UserId")
 	}
 
-	if (ticket.ClientId != 21){
+	if ticket.ClientID != 21 {
 		t.Errorf("wrong ClientId")
 	}
 
-	if (ticket.ValidityStart != 1438783424){
+	if ticket.ValidityStart != 1438783424 {
 		t.Errorf("wrong ValidityStart")
 	}
 
-	if (ticket.ValidityEnd != 1438783424+660){
+	if ticket.ValidityEnd != 1438783424+660 {
 		t.Errorf("wrong ValidityEnd")
 	}
 }
 
 func TestSigVerification(t *testing.T) {
-	_,err := ReadTicket(fullTicketBytes, signingPubKey)
+	_, err := readTicket(fullTicketBytes, signingPubKey)
 
 	if err == nil {
 		t.Errorf("succeeded in parsing ticket. that's unexpected.")

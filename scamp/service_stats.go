@@ -5,24 +5,24 @@ import (
 	"time"
 )
 
-type ServiceStats struct {
+type serviceStats struct {
 	ClientsAccepted uint64 `json:"total_clients_accepted"`
 	OpenConnections uint64 `json:"open_connections"`
 }
 
-func GatherStats(service *Service) (stats ServiceStats) {
+func gatherStats(service *Service) (stats serviceStats) {
 	stats.ClientsAccepted = service.connectionsAccepted
 	stats.OpenConnections = uint64(len(service.clients))
 
 	return
 }
 
-func PrintStatsLoop(service *Service, timeout time.Duration, closeChan chan bool) {
+func printStatsLoop(service *Service, timeout time.Duration, closeChan chan bool) {
 forLoop:
 	for {
 		select {
 		case <-time.After(timeout):
-			stats := GatherStats(service)
+			stats := gatherStats(service)
 			statsBytes, err := json.Marshal(&stats)
 			if err != nil {
 				continue

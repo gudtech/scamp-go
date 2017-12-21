@@ -5,7 +5,7 @@ import "crypto/x509"
 import "encoding/pem"
 
 func TestSHA1Fingerprint(t *testing.T) {
-	cert_bytes := []byte(`-----BEGIN CERTIFICATE-----
+	certBytes := []byte(`-----BEGIN CERTIFICATE-----
 MIIGKjCCBBKgAwIBAgIJANI9UqJ99EsjMA0GCSqGSIb3DQEBBQUAMGsxHzAdBgNV
 BAMTFlhhdmllcnMtTUJQIGhlbGxvd29ybGQxEjAQBgNVBAoTCVNDQU1QIEluYzEL
 MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExEjAQBgNVBAcTCVNhbiBE
@@ -40,7 +40,8 @@ eoDrElcVEz4+qSreemp8RlYXxWTweQ0+EMWvD+IxBz0EwE6wYRs6tkD1UZksC/kz
 SeS2aJqHmX6rGSSgM7R+saS3X91I0MYbQN0kDudJb2Qi7L/VdUBwNyDSWXqtjyNR
 vTK9LN2g3yixLZdO8GeH/AjpNn3a10lGoC67ETOJsfozHxJXE2gs/qiUeoqEgg==
 -----END CERTIFICATE-----`)
-	block, _ := pem.Decode(cert_bytes)
+
+	block, _ := pem.Decode(certBytes)
 	if block == nil && block.Type != "CERTIFICATE" {
 		t.Errorf("expected to block to be non-nil CERTIFICATE `%s`", block)
 		t.FailNow()
@@ -54,8 +55,9 @@ vTK9LN2g3yixLZdO8GeH/AjpNn3a10lGoC67ETOJsfozHxJXE2gs/qiUeoqEgg==
 		t.FailNow()
 	}
 
-	expected_fingerprint := "3B:1C:53:11:78:8B:70:71:07:00:FE:29:2F:AA:22:82:57:26:4A:09"
-	if sha1FingerPrint(cert) != expected_fingerprint {
+	expectedFingerprint := "3B:1C:53:11:78:8B:70:71:07:00:FE:29:2F:AA:22:82:57:26:4A:09"
+
+	if sha1FingerPrint(cert) != expectedFingerprint {
 		t.Errorf("cert fingerprints did not match")
 		t.FailNow()
 	}

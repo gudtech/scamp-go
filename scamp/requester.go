@@ -2,28 +2,25 @@ package scamp
 
 import (
 	"fmt"
+	"time"
 )
 
-var msgJson = "json"
-var msgJsonStore = "jsonstore"
-
-func MakeJsonRequest(sector, action string, version int, msg *Message) (responseChan chan *Message, err error) {
+// MakeJSONRequest retreives the appropriate service proxy based on the message action, and makes a
+// JSON request.
+func MakeJSONRequest(sector, action string, version int, msg *Message) (message *Message, err error) {
 	var msgType string
-	if msg.Envelope == ENVELOPE_JSON {
-		msgType = msgJson
-	} else if msg.Envelope == ENVELOPE_JSONSTORE {
-		msgType = msgJsonStore
+	if msg.Envelope == EnvelopeJSON {
+		msgType = "json"
+	} else if msg.Envelope == EnvelopeJSONSTORE {
+		msgType = "jsonstore"
 	} else {
 		err = fmt.Errorf("unsupported envelope type: `%d`", msg.Envelope)
 		return
 	}
 
-	err = defaultCache.Refresh()
-	if err != nil {
-		return
-	}
-
-	serviceProxies := defaultCache.SearchByAction(sector, action, version, msgType)
+	//TODO: add retry logic in case service proxies are nil
+	var serviceProxies []*serviceProxy
+	serviceProxies = defaultCache.SearchByAction(sector, action, version, msgType)
 	if serviceProxies == nil {
 		err = fmt.Errorf("could not find %s:%s~%d#%s", sector, action, version, msgType)
 		return
@@ -32,11 +29,12 @@ func MakeJsonRequest(sector, action string, version int, msg *Message) (response
 	msg.SetAction(action)
 	msg.SetVersion(version)
 
-	// TODO: shuffle serviceProxies
-
 	sent := false
-LOOPING_THROUGH_PROXIES:
+	var responseChan chan *Message
+
 	for _, serviceProxy := range serviceProxies {
+		Info.Printf("service proxy %s\n", serviceProxy.ident)
+
 		client, err := serviceProxy.GetClient()
 		if err != nil {
 			continue
@@ -45,14 +43,30 @@ LOOPING_THROUGH_PROXIES:
 		responseChan, err = client.Send(msg)
 		if err == nil {
 			sent = true
-			break LOOPING_THROUGH_PROXIES
+			break
 		}
 	}
 
 	if !sent {
-		err = fmt.Errorf("no valid clients were created. request failed.")
+		err = fmt.Errorf("no valid clients were created, request failed: %s", err)
 		return
 	}
 
-	return
+	for {
+		select {
+		case msg, ok := <-responseChan:
+			if !ok {
+				break
+			}
+			if msg == nil {
+				break
+			}
+			message = msg
+			return
+		case <-time.After(60 * time.Second):
+			close(responseChan)
+			err = fmt.Errorf("request timed out")
+			return
+		}
+	}
 }

@@ -30,6 +30,7 @@ type ServiceAction struct {
 	version  int
 }
 
+// Service represents a scamp service
 type Service struct {
 	serviceSpec string
 	sector      string
@@ -136,7 +137,7 @@ func (serv *Service) listen() (err error) {
 
 	// TODO: get listenerIP to return 127.0.0.1 or something other than '::'/nil
 	// serv.listenerIP = serv.listener.Addr().(*net.TCPAddr).IP
-	serv.listenerIP, err = IPForAnnouncePacket()
+	serv.listenerIP, err = getIPForAnnouncePacket()
 	Trace.Printf("serv.listenerIP: `%s`", serv.listenerIP)
 
 	if err != nil {
@@ -182,7 +183,7 @@ forLoop:
 		}
 
 		conn := NewConnection(tlsConn, "service")
-		client := NewClient(conn)
+		client := NewClient(conn, "service")
 
 		serv.clientsM.Lock()
 		serv.clients = append(serv.clients, client)
@@ -196,10 +197,10 @@ forLoop:
 	Info.Printf("closing all registered objects")
 
 	serv.clientsM.Lock()
-	defer serv.clientsM.Unlock()
 	for _, client := range serv.clients {
 		client.Close()
 	}
+	serv.clientsM.Unlock()
 
 	serv.statsCloseChan <- true
 }
@@ -207,7 +208,7 @@ forLoop:
 //Handle handles incoming client messages received via the cient MessageChan
 func (serv *Service) Handle(client *Client) {
 	var action *ServiceAction
-
+	Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
 HandlerLoop:
 	for {
 		select {
@@ -218,15 +219,15 @@ HandlerLoop:
 			action = serv.actions[msg.Action]
 
 			if action != nil {
-				// yay
+				Info.Printf("handling action %s\n", action.crudTags)
 				action.callback(msg, client)
 			} else {
 				Error.Printf("do not know how to handle action `%s`", msg.Action)
 
 				reply := NewMessage()
-				reply.SetMessageType(MESSAGE_TYPE_REPLY)
-				reply.SetEnvelope(ENVELOPE_JSON)
-				reply.SetRequestId(msg.RequestId)
+				reply.SetMessageType(MessageTypeReply)
+				reply.SetEnvelope(EnvelopeJSON)
+				reply.SetRequestID(msg.RequestID)
 				reply.Write([]byte(`{"error": "no such action"}`))
 				_, err := client.Send(reply)
 				if err != nil {
@@ -235,16 +236,12 @@ HandlerLoop:
 				}
 			}
 		case <-time.After(msgTimeout):
-			Error.Printf("timeout... dying!")
 			break HandlerLoop
 		}
 	}
 
 	client.Close()
 	serv.RemoveClient(client)
-
-	Trace.Printf("done handling client")
-
 }
 
 // RemoveClient removes a client from the scamp service
@@ -284,13 +281,13 @@ func (serv *Service) Stop() {
 func (serv *Service) MarshalText() (b []byte, err error) {
 	var buf bytes.Buffer
 
-	serviceProxy := ServiceAsServiceProxy(serv)
+	serviceProxy := serviceAsServiceProxy(serv)
 
 	classRecord, err := serviceProxy.MarshalJSON() //json.Marshal(&serviceProxy) //Marshal is mangling service actions
 	if err != nil {
 		return
 	}
-	sig, err := SignSHA256(classRecord, serv.cert.PrivateKey.(*rsa.PrivateKey))
+	sig, err := signSHA256(classRecord, serv.cert.PrivateKey.(*rsa.PrivateKey))
 	if err != nil {
 		return
 	}

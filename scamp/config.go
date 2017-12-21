@@ -9,6 +9,7 @@ import (
 	"strconv"
 )
 
+// Config represents scamp config
 type Config struct {
 	// string key for easy equals, byte return for easy nil
 	values map[string][]byte

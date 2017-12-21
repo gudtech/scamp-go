@@ -20,8 +20,12 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
-	serviceProxies = defaultCache.SearchByAction(sector, action, version, msgType)
-	if serviceProxies == nil {
+
+	serviceProxies, err = defaultCache.SearchByActionWithRetry(sector, action, version, msgType)
+	if err != nil {
+		return
+	}
+	if len(serviceProxies) == 0 {
 		err = fmt.Errorf("could not find %s:%s~%d#%s", sector, action, version, msgType)
 		return
 	}

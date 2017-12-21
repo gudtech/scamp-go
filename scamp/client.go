@@ -96,7 +96,6 @@ func (client *Client) Close() {
 	if len(client.spIdent) > 0 {
 		sp := defaultCache.Retrieve(client.spIdent)
 		if sp != nil {
-			Warning.Printf("removing client from service proxy: %s", client.spIdent)
 			sp.client = nil
 		}
 	}

@@ -21,7 +21,7 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
 
-	serviceProxies, err = defaultCache.SearchByActionWithRetry(sector, action, version, msgType)
+	serviceProxies, err = defaultCache.SearchByAction(sector, action, version, msgType)
 	if err != nil {
 		return
 	}
@@ -50,7 +50,7 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	}
 
 	if !sent {
-		err = fmt.Errorf("no valid clients were created, request failed: %s", err)
+		err = fmt.Errorf("Request failed: %s.%s not found: %s", sector, action, err)
 		return
 	}
 

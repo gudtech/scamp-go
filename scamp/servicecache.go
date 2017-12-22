@@ -5,10 +5,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/rand"
 	"os"
 	"sync"
-	"time"
 )
 
 type serviceCache struct {
@@ -115,27 +113,14 @@ func (cache *serviceCache) Retrieve(ident string) (instance *serviceProxy) {
 	return
 }
 
-func (cache *serviceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy) {
+func (cache *serviceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
 	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
-
-	return cache.actionIndex[mungedName]
-}
-
-func (cache *serviceCache) SearchByActionWithRetry(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
-	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
-
-	return nil, retry(3, time.Second, func() error {
-		instances = cache.actionIndex[mungedName]
-		if len(instances) == 0 {
-			cache.Refresh()
-			return fmt.Errorf("No service proxy in cache for %s", mungedName)
-		}
-
-		if instances[0] == nil {
-			return stop{fmt.Errorf("service cache contained a nil entry for %s", mungedName)}
-		}
-		return nil
-	})
+	instances = cache.actionIndex[mungedName]
+	if len(instances) == 0 {
+		err = fmt.Errorf("no instances found")
+		return
+	}
+	return
 }
 
 func (cache *serviceCache) Size() int {
@@ -298,26 +283,39 @@ func scanCertficates(data []byte, atEOF bool) (advance int, token []byte, err er
 	return 0, nil, nil
 }
 
-func retry(attempts int, sleep time.Duration, f func() error) error {
-	if err := f(); err != nil {
-		if s, ok := err.(stop); ok {
-			Error.Println("Retry func exited with err.(stop)")
-			return s.error
-		}
+// RETRY LOGIC
+// TODO: cannot implement rety until cache.Refresh() is rewritten to support updating the cache rather than clearing and rebuilding
+// each time it is called
 
-		if attempts--; attempts > 0 {
-			Warning.Printf("remaining retry attempts %v", attempts)
-			jitter := time.Duration(rand.Int63n(int64(sleep)))
-			sleep = sleep + jitter/2
+// MaxRetries is the maximum number of retries before bailing.
+var MaxRetries = 10
 
-			time.Sleep(sleep)
-			return retry(attempts, 2*sleep, f)
+var errMaxRetriesReached = errors.New("exceeded retry limit")
+
+// Func represents functions that can be retried.
+type Func func(attempt int) (retry bool, err error)
+
+// Do keeps trying the function until the second argument
+// returns false, or no error is returned.
+func Do(fn Func) error {
+	var err error
+	var cont bool
+	attempt := 1
+	for {
+		cont, err = fn(attempt)
+		if !cont || err == nil {
+			break
 		}
-		return err
+		attempt++
+		if attempt > MaxRetries {
+			return errMaxRetriesReached
+		}
 	}
-	return nil
+	return err
 }
 
-type stop struct {
-	error
+// IsMaxRetries checks whether the error is due to hitting the
+// maximum number of retries or not.
+func IsMaxRetries(err error) bool {
+	return err == errMaxRetriesReached
 }

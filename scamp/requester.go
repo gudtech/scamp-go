@@ -65,8 +65,8 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 			}
 			message = msg
 			return
-		case <-time.After(60 * time.Second):
-			close(responseChan)
+		case <-time.After(300 * time.Second):
+			//close(responseChan)
 			err = fmt.Errorf("request timed out")
 			return
 		}

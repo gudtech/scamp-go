@@ -325,11 +325,11 @@ func (conn *Connection) Close() {
 	// Trace.Printf("connection is closing")
 
 	conn.conn.Close()
-	conn.conn = nil
+	// conn.conn = nil
 
-	conn.readWriterLock.Lock()
-	conn.readWriter.Flush()
-	conn.readWriterLock.Unlock()
+	// conn.readWriterLock.Lock()
+	// conn.readWriter.Flush()
+	// conn.readWriterLock.Unlock()
 
 	conn.isClosed = true
 	conn.closedMutex.Unlock()

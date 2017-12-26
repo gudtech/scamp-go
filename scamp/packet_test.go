@@ -38,8 +38,8 @@ func TestReadHeaderPacketOK(t *testing.T) {
 		t.Errorf("expected header.action to be `foo` but got `%s`", header.Action)
 		t.FailNow()
 	}
-	if header.Envelope != ENVELOPE_JSON {
-		t.Errorf("expected header.envelope to be ENVELOPE_JSON (%d) but got %d", ENVELOPE_JSON, header.Envelope)
+	if header.Envelope != EnvelopeJSON {
+		t.Errorf("expected header.envelope to be EnvelopeJSON (%d) but got %d", EnvelopeJSON, header.Envelope)
 		t.FailNow()
 	}
 }
@@ -145,21 +145,21 @@ func TestFailTooManyBodyBytes(t *testing.T) {
 
 func TestWriteHeaderPacket(t *testing.T) {
 	packet := Packet{
-		packetType:  HEADER,
-		msgNo: 0,
+		packetType: HEADER,
+		msgNo:      0,
 		packetHeader: PacketHeader{
-			Action:    "hello.helloworld",
-			Envelope:  ENVELOPE_JSON,
-			RequestId: 1,
-			Version:   1,
-			MessageType: MESSAGE_TYPE_REQUEST,
+			Action:      "hello.helloworld",
+			Envelope:    EnvelopeJSON,
+			RequestID:   1,
+			Version:     1,
+			MessageType: MessageTypeRequest,
 		},
 		body: []byte(""),
 	}
 	expected := []byte("HEADER 0 92\r\n{\"action\":\"hello.helloworld\",\"envelope\":\"json\",\"request_id\":1,\"type\":\"request\",\"version\":1}\nEND\r\n")
 
 	buf := new(bytes.Buffer)
-	bytesWritten,err := packet.Write(buf)
+	bytesWritten, err := packet.Write(buf)
 	if err != nil {
 		t.Errorf("unexpected error while writing to buf `%s`", err)
 		t.FailNow()
@@ -176,14 +176,14 @@ func TestWriteHeaderPacket(t *testing.T) {
 
 func TestWriteEofPacket(t *testing.T) {
 	packet := Packet{
-		packetType:  EOF,
-		msgNo: 0,
-		body:        []byte(""),
+		packetType: EOF,
+		msgNo:      0,
+		body:       []byte(""),
 	}
 	expected := []byte("EOF 0 0\r\nEND\r\n")
 
 	buf := new(bytes.Buffer)
-	bytesWritten,err := packet.Write(buf)
+	bytesWritten, err := packet.Write(buf)
 	if err != nil {
 		t.Errorf("unexpected error while writing to buf `%s`", err)
 		t.FailNow()

@@ -23,12 +23,12 @@ func TestScanCertificate(t *testing.T) {
 func BenchmarkReadingProductionAnnounceCache(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			file,err := os.Open("/Users/xavierlange/code/gudtech/scamp-patrol/fixtures/discovery.sample")
+			file, err := os.Open("/Users/xavierlange/code/gudtech/scamp-patrol/fixtures/discovery.sample")
 			if err != nil {
 				panic("could not open file")
 			}
-			
-			cache,err := NewServiceCache("/tmp/blah")
+
+			cache, err := newServiceCache("/tmp/blah")
 			if err != nil {
 				panic("wah wah")
 			}
@@ -43,14 +43,14 @@ func BenchmarkReadingProductionAnnounceCache(b *testing.B) {
 func TestReadAnnounceCache(t *testing.T) {
 	initSCAMPLogger()
 
-	file,err := os.Open("/Users/xavierlange/code/gudtech/scamp-go/fixtures/announce_cache")
+	file, err := os.Open("/Users/xavierlange/code/gudtech/scamp-go/fixtures/announce_cache")
 	if err != nil {
 		return
 	}
 
 	s := bufio.NewScanner(file)
 
-	cache,err := NewServiceCache("/tmp/blah")
+	cache, err := newServiceCache("/tmp/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache: `%s`", err)
 	}
@@ -68,7 +68,7 @@ func TestScanNoNewLineCert(t *testing.T) {
 	initSCAMPLogger()
 
 	s := bufio.NewScanner(bytes.NewReader(weirdEntries))
-	cache,err := NewServiceCache("/tmp/blah")
+	cache, err := newServiceCache("/tmp/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache: `%s`", err)
 	}
@@ -84,11 +84,11 @@ func TestScanNoNewLineCert(t *testing.T) {
 }
 
 func TestRegisterOnServiceCache(t *testing.T) {
-	cache,err := NewServiceCache("/tmp/blah")
+	cache, err := newServiceCache("/tmp/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache")
 	}
-	serviceInstance := new(ServiceProxy)
+	serviceInstance := new(serviceProxy)
 	serviceInstance.ident = "bob"
 
 	cache.Store(serviceInstance)
@@ -217,21 +217,21 @@ DzZqcZjWY5gs9UaTHBBMAwp5G3tr1uQ6Fgi3mFlo1tA9J5Vex8CEaw+U0YklidTKMVDN3y8OLZsICLwT
 `)
 
 func TestSearchByAction(t *testing.T) {
-  cache,err := NewServiceCache("/Users/xavierlange/code/gudtech/workspace/src/github.com/gudtech/scamp-go/fixtures/sample_discovery_cache")
-  if err != nil {
-    t.Fatalf(err.Error())
-  }
+	cache, err := newServiceCache("/Users/xavierlange/code/gudtech/workspace/src/github.com/gudtech/scamp-go/fixtures/sample_discovery_cache")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
-  cache.DisableRecordVerification()
-  err = cache.Refresh()
-  if err != nil {
-    t.Fatalf(err.Error())
-  }
+	cache.DisableRecordVerification()
+	err = cache.Refresh()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
-  // t.Fatalf("%s", cache.actionIndex)
+	// t.Fatalf("%s", cache.actionIndex)
 
-  serviceProxy := cache.SearchByAction("main","Logger.info",1,"json")
-  if serviceProxy == nil {
-    t.Fatalf("hmm, no hit!")
-  }
+	serviceProxy := cache.SearchByAction("main", "Logger.info", 1, "json")
+	if serviceProxy == nil {
+		t.Fatalf("hmm, no hit!")
+	}
 }

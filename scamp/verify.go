@@ -4,20 +4,20 @@ package scamp
 // import "fmt"
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 
 	"encoding/base64"
 
 	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/rand"
 )
 
 var padding = []byte("=")
 
-func VerifySHA256(rawPayload []byte, rsaPubKey *rsa.PublicKey, encodedSignature []byte, isURLEncoded bool) (err error) {
+func verifySHA256(rawPayload []byte, rsaPubKey *rsa.PublicKey, encodedSignature []byte, isURLEncoded bool) (err error) {
 	expectedSig, err := decodeUnpaddedBase64(encodedSignature, isURLEncoded)
 	if err != nil {
 		err = fmt.Errorf("failed to decode base64: `%s`/`%s`", err, encodedSignature)
@@ -37,12 +37,11 @@ func VerifySHA256(rawPayload []byte, rsaPubKey *rsa.PublicKey, encodedSignature 
 	return
 }
 
-func SignSHA256(rawPayload []byte, priv *rsa.PrivateKey) (base64signature string, err error) {
-	// func SignPKCS1v15(rand io.Reader, priv *PrivateKey, hash crypto.Hash, hashed []byte) (s []byte, err error)
+func signSHA256(rawPayload []byte, priv *rsa.PrivateKey) (base64signature string, err error) {
 	h := sha256.New()
 	h.Write(rawPayload)
 	digest := h.Sum(nil)
-	sig,err := rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, digest)
+	sig, err := rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, digest)
 	if err != nil {
 		return
 	}
@@ -56,9 +55,9 @@ func decodeUnpaddedBase64(incoming []byte, isURLEncoded bool) (decoded []byte, e
 			paddingBytes := bytes.Repeat(padding, 4-m)
 			incoming = append(incoming, paddingBytes[:]...)
 		}
-		_,err = base64.URLEncoding.Decode(decoded, incoming)
+		_, err = base64.URLEncoding.Decode(decoded, incoming)
 	} else {
-		decoded,err = base64.StdEncoding.DecodeString(string(incoming))
+		decoded, err = base64.StdEncoding.DecodeString(string(incoming))
 	}
 
 	return

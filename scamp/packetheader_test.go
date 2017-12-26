@@ -10,7 +10,7 @@ func TestEncodeEnvelope(t *testing.T) {
 	buf := new(bytes.Buffer)
 	encoder := json.NewEncoder(buf)
 
-	val := ENVELOPE_JSON
+	val := EnvelopeJSON
 	err := encoder.Encode(val)
 
 	if err != nil {
@@ -25,11 +25,11 @@ func TestEncodeEnvelope(t *testing.T) {
 
 func TestWritePacketHeader(t *testing.T) {
 	packetHeader := PacketHeader{
-		Action:    "hello.helloworld",
-		Envelope:  ENVELOPE_JSON,
-		MessageType: MESSAGE_TYPE_REQUEST,
-		RequestId: 1,
-		Version:   1,
+		Action:      "hello.helloworld",
+		Envelope:    EnvelopeJSON,
+		MessageType: MessageTypeRequest,
+		RequestID:   1,
+		Version:     1,
 	}
 	expected := []byte(`{"action":"hello.helloworld","envelope":"json","request_id":1,"type":"request","version":1}
 `)
@@ -46,8 +46,8 @@ func TestWritePacketHeader(t *testing.T) {
 }
 
 func TestDecodePacketHeader(t *testing.T) {
-	pkt_hdr_bytes := []byte("{\"envelope\": \"json\"}")
-	buf := bytes.NewReader(pkt_hdr_bytes)
+	pktHdrBytes := []byte("{\"envelope\": \"json\"}")
+	buf := bytes.NewReader(pktHdrBytes)
 	decoder := json.NewDecoder(buf)
 
 	var pktHeader PacketHeader
@@ -59,8 +59,8 @@ func TestDecodePacketHeader(t *testing.T) {
 }
 
 func TestDecodePacketHeaderReply(t *testing.T) {
-	pkt_hdr_bytes := []byte("{\"type\":\"reply\",\"request_id\":1}")
-	buf := bytes.NewReader(pkt_hdr_bytes)
+	pktHdrBytes := []byte("{\"type\":\"reply\",\"request_id\":1}")
+	buf := bytes.NewReader(pktHdrBytes)
 	decoder := json.NewDecoder(buf)
 
 	var pktHeader PacketHeader

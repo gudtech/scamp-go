@@ -8,21 +8,21 @@ import "encoding/pem"
 import "crypto/rsa"
 import "crypto/x509"
 
+// Ticket represents a scamp auth ticket
 type Ticket struct {
-	Version int64
-	UserId  int64
-	ClientId int64
+	Version       int64
+	UserID        int64
+	ClientID      int64
 	ValidityStart int64
 	ValidityEnd   int64
-
-	Ttl int
-	Expired bool
+	TTL           int
+	Expired       bool
 }
 
 var separator = []byte(",")
 var supportedVersion = []byte("1")
 
-func ReadTicket(incoming []byte, signingPubKey []byte) (ticket Ticket, err error) {
+func readTicket(incoming []byte, signingPubKey []byte) (ticket Ticket, err error) {
 	rsaPubKey, err := parseRsaPubKey(signingPubKey)
 	if err != nil {
 		return
@@ -30,12 +30,12 @@ func ReadTicket(incoming []byte, signingPubKey []byte) (ticket Ticket, err error
 
 	ticketBytes, signature := splitTicketPayload(incoming)
 
-	err = VerifySHA256(ticketBytes, rsaPubKey, signature, true)
+	err = verifySHA256(ticketBytes, rsaPubKey, signature, true)
 	if err != nil {
 		return
 	}
 
-	ticket,err = parseTicketBytes(ticketBytes)
+	ticket, err = parseTicketBytes(ticketBytes)
 	if err != nil {
 		return
 	}
@@ -43,8 +43,8 @@ func ReadTicket(incoming []byte, signingPubKey []byte) (ticket Ticket, err error
 	return
 }
 
-func ReadTicketNoVerify(incoming []byte) (ticket Ticket, err error) {
-	ticketBytes,_ := splitTicketPayload(incoming)
+func readTicketNoVerify(incoming []byte) (ticket Ticket, err error) {
+	ticketBytes, _ := splitTicketPayload(incoming)
 	return parseTicketBytes(ticketBytes)
 }
 
@@ -83,28 +83,28 @@ func parseTicketBytes(ticketBytes []byte) (ticket Ticket, err error) {
 		return
 	}
 
-	ticket.Version,err = strconv.ParseInt(string(chunks[0]), 10, 0)
-	if(err != nil){
+	ticket.Version, err = strconv.ParseInt(string(chunks[0]), 10, 0)
+	if err != nil {
 		return
 	}
 
-	ticket.UserId,err = strconv.ParseInt(string(chunks[1]), 10, 0)
-	if(err != nil){
+	ticket.UserID, err = strconv.ParseInt(string(chunks[1]), 10, 0)
+	if err != nil {
 		return
 	}
 
-	ticket.ClientId,err = strconv.ParseInt(string(chunks[2]), 10, 0)
-	if(err != nil){
+	ticket.ClientID, err = strconv.ParseInt(string(chunks[2]), 10, 0)
+	if err != nil {
 		return
 	}
 
-	ticket.ValidityStart,err = strconv.ParseInt(string(chunks[3]), 10, 0)
-	if(err != nil){
+	ticket.ValidityStart, err = strconv.ParseInt(string(chunks[3]), 10, 0)
+	if err != nil {
 		return
 	}
 
-	validityDuration,err := strconv.ParseInt(string(chunks[4]), 10, 0)
-	if(err != nil){
+	validityDuration, err := strconv.ParseInt(string(chunks[4]), 10, 0)
+	if err != nil {
 		return
 	}
 	ticket.ValidityEnd = ticket.ValidityStart + validityDuration

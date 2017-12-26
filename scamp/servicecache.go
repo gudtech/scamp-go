@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 )
 
 type serviceCache struct {
@@ -31,25 +30,6 @@ func newServiceCache(path string) (cache *serviceCache, err error) {
 	if err != nil {
 		return
 	}
-
-	//refresh the cache every five seconds
-	ticker := time.NewTicker(5 * time.Second)
-	quit := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				err = cache.Refresh()
-				if err != nil {
-					Error.Printf("problem refreshing cache: %s\n", err)
-				}
-				Info.Printf("Cache refreshed")
-			case <-quit:
-				ticker.Stop()
-				break
-			}
-		}
-	}()
 
 	return
 }

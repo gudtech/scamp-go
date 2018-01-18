@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-type serviceCache struct {
+type ServiceCache struct {
 	path          string
 	cacheM        sync.Mutex
 	identIndex    map[string]*serviceProxy
@@ -17,8 +17,8 @@ type serviceCache struct {
 	verifyRecords bool
 }
 
-func newServiceCache(path string) (cache *serviceCache, err error) {
-	cache = new(serviceCache)
+func NewServiceCache(path string) (cache *ServiceCache, err error) {
+	cache = new(ServiceCache)
 	cache.path = path
 
 	cache.identIndex = make(map[string]*serviceProxy)
@@ -34,15 +34,15 @@ func newServiceCache(path string) (cache *serviceCache, err error) {
 	return
 }
 
-func (cache *serviceCache) DisableRecordVerification() {
+func (cache *ServiceCache) DisableRecordVerification() {
 	cache.verifyRecords = true
 }
 
-func (cache *serviceCache) EnableRecordVerification() {
+func (cache *ServiceCache) EnableRecordVerification() {
 	cache.verifyRecords = false
 }
 
-func (cache *serviceCache) Store(instance *serviceProxy) {
+func (cache *ServiceCache) Store(instance *serviceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -51,7 +51,7 @@ func (cache *serviceCache) Store(instance *serviceProxy) {
 	return
 }
 
-func (cache *serviceCache) storeNoLock(instance *serviceProxy) {
+func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
 	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		cache.identIndex[instance.ident] = instance
@@ -82,7 +82,7 @@ func (cache *serviceCache) storeNoLock(instance *serviceProxy) {
 	return
 }
 
-func (cache *serviceCache) removeNoLock(instance *serviceProxy) (err error) {
+func (cache *ServiceCache) removeNoLock(instance *serviceProxy) (err error) {
 	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		err = fmt.Errorf("tried removing an ident which was not being tracked: %s", instance.ident)
@@ -96,13 +96,13 @@ func (cache *serviceCache) removeNoLock(instance *serviceProxy) (err error) {
 
 // TODO: in a perfect world we'd do upserts to the cache
 // and sweep for stale proxy definitions.
-func (cache *serviceCache) clearNoLock() (err error) {
+func (cache *ServiceCache) clearNoLock() (err error) {
 	cache.identIndex = make(map[string]*serviceProxy)
 
 	return
 }
 
-func (cache *serviceCache) Retrieve(ident string) (instance *serviceProxy) {
+func (cache *ServiceCache) Retrieve(ident string) (instance *serviceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -115,7 +115,7 @@ func (cache *serviceCache) Retrieve(ident string) (instance *serviceProxy) {
 	return
 }
 
-func (cache *serviceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
+func (cache *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
 	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
 	instances = cache.actionIndex[mungedName]
 	if len(instances) == 0 {
@@ -125,14 +125,14 @@ func (cache *serviceCache) SearchByAction(sector, action string, version int, en
 	return
 }
 
-func (cache *serviceCache) Size() int {
+func (cache *ServiceCache) Size() int {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
 	return len(cache.identIndex)
 }
 
-func (cache *serviceCache) All() (proxies []*serviceProxy) {
+func (cache *ServiceCache) All() (proxies []*serviceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -151,7 +151,7 @@ func (cache *serviceCache) All() (proxies []*serviceProxy) {
 var sep = []byte(`%%%`)
 var newline = []byte("\n")
 
-func (cache *serviceCache) Refresh() (err error) {
+func (cache *ServiceCache) Refresh() (err error) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -178,7 +178,7 @@ func (cache *serviceCache) Refresh() (err error) {
 	return
 }
 
-func (cache *serviceCache) DoScan(s *bufio.Scanner) (err error) {
+func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 	cache.clearNoLock()
 
 	// var entries int = 0

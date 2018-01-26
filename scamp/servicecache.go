@@ -9,34 +9,40 @@ import (
 	"sync"
 )
 
-type ServiceCache struct {
-	path string
-
+type serviceCache struct {
+	path          string
 	cacheM        sync.Mutex
-	identIndex    map[string]*ServiceProxy
-	actionIndex   map[string][]*ServiceProxy
+	identIndex    map[string]*serviceProxy
+	actionIndex   map[string][]*serviceProxy
 	verifyRecords bool
 }
 
-func NewServiceCache(path string) (cache *ServiceCache, err error) {
-	cache = new(ServiceCache)
+func newServiceCache(path string) (cache *serviceCache, err error) {
+	cache = new(serviceCache)
 	cache.path = path
 
-	cache.identIndex = make(map[string]*ServiceProxy)
-	cache.actionIndex = make(map[string][]*ServiceProxy)
+	cache.identIndex = make(map[string]*serviceProxy)
+	cache.actionIndex = make(map[string][]*serviceProxy)
 	cache.verifyRecords = true
+
+	//moving this here for now
+	err = cache.Refresh()
+	if err != nil {
+		return
+	}
+
 	return
 }
 
-func (cache *ServiceCache) DisableRecordVerification() {
+func (cache *serviceCache) DisableRecordVerification() {
 	cache.verifyRecords = true
 }
 
-func (cache *ServiceCache) EnableRecordVerification() {
+func (cache *serviceCache) EnableRecordVerification() {
 	cache.verifyRecords = false
 }
 
-func (cache *ServiceCache) Store(instance *ServiceProxy) {
+func (cache *serviceCache) Store(instance *serviceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -45,7 +51,7 @@ func (cache *ServiceCache) Store(instance *ServiceProxy) {
 	return
 }
 
-func (cache *ServiceCache) storeNoLock(instance *ServiceProxy) {
+func (cache *serviceCache) storeNoLock(instance *serviceProxy) {
 	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		cache.identIndex[instance.ident] = instance
@@ -65,7 +71,7 @@ func (cache *ServiceCache) storeNoLock(instance *ServiceProxy) {
 				if ok {
 					serviceProxies = append(serviceProxies, instance)
 				} else {
-					serviceProxies = []*ServiceProxy{instance}
+					serviceProxies = []*serviceProxy{instance}
 				}
 
 				cache.actionIndex[mungedName] = serviceProxies
@@ -76,7 +82,7 @@ func (cache *ServiceCache) storeNoLock(instance *ServiceProxy) {
 	return
 }
 
-func (cache *ServiceCache) removeNoLock(instance *ServiceProxy) (err error) {
+func (cache *serviceCache) removeNoLock(instance *serviceProxy) (err error) {
 	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		err = fmt.Errorf("tried removing an ident which was not being tracked: %s", instance.ident)
@@ -90,13 +96,13 @@ func (cache *ServiceCache) removeNoLock(instance *ServiceProxy) (err error) {
 
 // TODO: in a perfect world we'd do upserts to the cache
 // and sweep for stale proxy definitions.
-func (cache *ServiceCache) clearNoLock() (err error) {
-	cache.identIndex = make(map[string]*ServiceProxy)
+func (cache *serviceCache) clearNoLock() (err error) {
+	cache.identIndex = make(map[string]*serviceProxy)
 
 	return
 }
 
-func (cache *ServiceCache) Retrieve(ident string) (instance *ServiceProxy) {
+func (cache *serviceCache) Retrieve(ident string) (instance *serviceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -109,30 +115,34 @@ func (cache *ServiceCache) Retrieve(ident string) (instance *ServiceProxy) {
 	return
 }
 
-func (cache *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*ServiceProxy) {
+func (cache *serviceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
 	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
-
-	return cache.actionIndex[mungedName]
+	instances = cache.actionIndex[mungedName]
+	if len(instances) == 0 {
+		err = fmt.Errorf("no instances found")
+		return
+	}
+	return
 }
 
-func (cache *ServiceCache) Size() int {
+func (cache *serviceCache) Size() int {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
 	return len(cache.identIndex)
 }
 
-func (cache *ServiceCache) All() (proxies []*ServiceProxy) {
+func (cache *serviceCache) All() (proxies []*serviceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
 	size := len(cache.identIndex)
-	proxies = make([]*ServiceProxy, size)
+	proxies = make([]*serviceProxy, size)
 
 	index := 0
 	for _, proxy := range cache.identIndex {
 		proxies[index] = proxy
-		index += 1
+		index++
 	}
 
 	return
@@ -141,7 +151,7 @@ func (cache *ServiceCache) All() (proxies []*ServiceProxy) {
 var sep = []byte(`%%%`)
 var newline = []byte("\n")
 
-func (cache *ServiceCache) Refresh() (err error) {
+func (cache *serviceCache) Refresh() (err error) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -152,7 +162,7 @@ func (cache *ServiceCache) Refresh() (err error) {
 		err = fmt.Errorf("cannot use cache path: `%s` is a directory", cache.path)
 		return
 	}
-	Trace.Printf("mtime: %s\n", stat.ModTime())
+	// Trace.Printf("mtime: %s\n", stat.ModTime())
 
 	cacheHandle, err := os.Open(cache.path)
 	if err != nil {
@@ -168,7 +178,7 @@ func (cache *ServiceCache) Refresh() (err error) {
 	return
 }
 
-func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
+func (cache *serviceCache) DoScan(s *bufio.Scanner) (err error) {
 	cache.clearNoLock()
 
 	// var entries int = 0
@@ -228,9 +238,9 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 		// Error.Printf("`%s`", sigRaw)
 
 		// Use those extracted value to make an instance
-		serviceProxy, err := NewServiceProxy(classRecordsRaw, certRaw, sigRaw)
+		serviceProxy, err := newServiceProxy(classRecordsRaw, certRaw, sigRaw)
 		if err != nil {
-			return fmt.Errorf("NewServiceProxy: %s", err)
+			return fmt.Errorf("newServiceProxy: %s", err)
 		}
 
 		// Validating is a very expensive operation in the benchmarks
@@ -271,7 +281,43 @@ func scanCertficates(data []byte, atEOF bool) (advance int, token []byte, err er
 	// assert end line, consume if present
 	if i = bytes.Index(data, endCert); i >= 0 {
 		return i + len(endCert), data[0 : i+len(endCert)], nil
-	} else {
-		return 0, nil, nil
 	}
+	return 0, nil, nil
+}
+
+// RETRY LOGIC
+// TODO: cannot implement rety until cache.Refresh() is rewritten to support updating the cache rather than clearing and rebuilding
+// each time it is called
+
+// MaxRetries is the maximum number of retries before bailing.
+var MaxRetries = 10
+
+var errMaxRetriesReached = errors.New("exceeded retry limit")
+
+// Func represents functions that can be retried.
+type Func func(attempt int) (retry bool, err error)
+
+// Do keeps trying the function until the second argument
+// returns false, or no error is returned.
+func Do(fn Func) error {
+	var err error
+	var cont bool
+	attempt := 1
+	for {
+		cont, err = fn(attempt)
+		if !cont || err == nil {
+			break
+		}
+		attempt++
+		if attempt > MaxRetries {
+			return errMaxRetriesReached
+		}
+	}
+	return err
+}
+
+// IsMaxRetries checks whether the error is due to hitting the
+// maximum number of retries or not.
+func IsMaxRetries(err error) bool {
+	return err == errMaxRetriesReached
 }

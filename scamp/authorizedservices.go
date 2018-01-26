@@ -8,7 +8,7 @@ import "bytes"
 // AuthorizedServiceSpec contains service's fingerprint and registered actions
 type AuthorizedServiceSpec struct {
 	Fingerprint []byte
-	Actions     []ServiceProxyClass
+	Actions     []serviceProxyClass
 }
 
 // AuthorizedServicesCache contains array of service's AuthorizedServiceSpec
@@ -41,7 +41,7 @@ func (cache *AuthorizedServicesCache) LoadAuthorizedServices(s *bufio.Scanner) (
 
 		_, err = NewAuthorizedServicesSpec(s.Bytes())
 		if err != nil {
-			Trace.Printf("Error creating AuthorizedServicesCache: %s", err)
+			// Trace.Printf("Error creating AuthorizedServicesCache: %s", err)
 		}
 
 		count = count + 1
@@ -64,7 +64,7 @@ func NewAuthorizedServicesSpec(line []byte) (spec *AuthorizedServiceSpec, err er
 	spec = new(AuthorizedServiceSpec)
 	spec.Fingerprint = make([]byte, len(s.Bytes()))
 	copy(spec.Fingerprint, s.Bytes())
-	spec.Actions = make([]ServiceProxyClass, 100)
+	spec.Actions = make([]serviceProxyClass, 100) //TODO: do a better job allocating here
 
 	index := 0
 	var read bool

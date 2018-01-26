@@ -6,7 +6,8 @@ import "strings"
 import "crypto/sha1"
 import "crypto/x509"
 
-func SHA1FingerPrint(cert *x509.Certificate) (hexSha1 string) {
+// GetSHA1FingerPrint returns a sha1 hash fingerprint of the service's x509 certitifate
+func GetSHA1FingerPrint(cert *x509.Certificate) (hexSha1 string) {
 	return sha1FingerPrint(cert)
 }
 

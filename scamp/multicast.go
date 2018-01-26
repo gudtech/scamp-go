@@ -5,7 +5,7 @@ import "net"
 
 import "golang.org/x/net/ipv4"
 
-func LoopbackInterface() (lo *net.Interface, err error) {
+func loopbackInterface() (lo *net.Interface, err error) {
 	lo, err = net.InterfaceByName("lo0")
 	if err != nil {
 		lo, err = net.InterfaceByName("lo")
@@ -18,58 +18,26 @@ func LoopbackInterface() (lo *net.Interface, err error) {
 	return
 }
 
-func LocalMulticastPacketConn() (conn *ipv4.PacketConn, err error) {
-	/*
-	  lo,err := LoopbackInterface()
-	  if err != nil {
-	    return
-	  }
-
-	  maddrs, err := lo.MulticastAddrs()
-	  if err != nil {
-	    return
-	  }
-
-	  var bestAddr net.Addr
-	  for _,maddr := range maddrs {
-	    Trace.Printf("looking at: `%s`", maddr.String())
-	    parsedIP := net.ParseIP(maddr.String())
-	    if parsedIP == nil {
-	      Error.Printf("could not parsed IP: `%s`", maddr.String())
-	      continue
-	    } else if parsedIP.To4() == nil {
-	      continue
-	    }
-	    bestAddr = maddr
-	    break
-	  }
-	  if bestAddr == nil {
-	    err = fmt.Errorf("could not find a good address to bind to")
-	    return
-	  }
-
-	  localMulticastSpec := fmt.Sprintf("%s:%d", bestAddr, 5555)
-	*/
-
+func localMulticastPacketConn() (conn *ipv4.PacketConn, err error) {
 	// TODO fundamentally change how multicast is sent. I can't get the API to work
 	// without creating a listener socket first but I shouldn't need it.
 	// Had issues with running multiple services (heka and sdk_service) so I'm
-	// going to the let the OS pick the port. `127.0.0.1:5556` used to work!
+	// going to the let the OS pick the port. `127.0.0.1:5556` used to work! -XRL
 	localMulticastSpec := "127.0.0.1:"
-	Trace.Printf("announce binding to port: `%s`", localMulticastSpec)
+	// Trace.Printf("announce binding to port: `%s`", localMulticastSpec)
 
 	udpConn, err := net.ListenPacket("udp", localMulticastSpec)
 	if err != nil {
 		Error.Printf("could not listen to `%s`", localMulticastSpec)
 		return
 	}
-	Trace.Printf("udpConn.LocalAddr(): %s", udpConn.LocalAddr())
+	// Trace.Printf("udpConn.LocalAddr(): %s", udpConn.LocalAddr())
 
 	conn = ipv4.NewPacketConn(udpConn)
 	return
 }
 
-func IPForAnnouncePacket() (ip net.IP, err error) {
+func getIPForAnnouncePacket() (ip net.IP, err error) {
 	infs, err := net.Interfaces()
 	if err != nil {
 		Error.Printf("err: `%s`", err)
@@ -92,7 +60,7 @@ func IPForAnnouncePacket() (ip net.IP, err error) {
 				Error.Printf("ParseCIDR err: `%s`\n", err)
 				continue
 			} else if ip.To4() == nil {
-				Trace.Printf("IP is not IPv4: `%s`\n", ip)
+				// Trace.Printf("IP is not IPv4: `%s`\n", ip)
 				continue
 			}
 			break

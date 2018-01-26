@@ -49,7 +49,7 @@ zJjLAmIyriV6BEUJvfwKmfA=
 -----END CERTIFICATE-----`)
 
 func TestNewServiceProxy(t *testing.T) {
-	proxy,err := NewServiceProxy(serviceProxyClassRecordsRaw, serviceProxyCertRaw, serviceProxySigRaw)
+	proxy, err := newServiceProxy(serviceProxyClassRecordsRaw, serviceProxyCertRaw, serviceProxySigRaw)
 	if err != nil {
 		t.Fatalf("failed to instantiate new proxy: %s", err.Error())
 	}
@@ -60,61 +60,61 @@ func TestNewServiceProxy(t *testing.T) {
 
 	err = proxy.Validate()
 	if err != nil {
-    // TODO need to manually resign our announce packet. Sigh.
+		// TODO need to manually resign our announce packet. Sigh.
 		// t.Errorf("failed to validate: `%s`", err)
 	}
 }
 
 func TestServiceProxySerialize(t *testing.T) {
-  // [3,
-  //  "bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75",
-  // "main",
-  // 1,
-  // 5000,
-  // "beepish+tls://10.8.1.158:30359",
-  // ["json"],
-  // [["bgdispatcher",["poll","",1],["reboot","",1],["report","",1]]]
-  // ,1440001142628
-  // ]
-	serviceProxy := ServiceProxy {
-		version: 3,
-		ident: "bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75",
-		sector: "main",
-		weight: 1,
+	// [3,
+	//  "bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75",
+	// "main",
+	// 1,
+	// 5000,
+	// "beepish+tls://10.8.1.158:30359",
+	// ["json"],
+	// [["bgdispatcher",["poll","",1],["reboot","",1],["report","",1]]]
+	// ,1440001142628
+	// ]
+	serviceProxy := serviceProxy{
+		version:          3,
+		ident:            "bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75",
+		sector:           "main",
+		weight:           1,
 		announceInterval: defaultAnnounceInterval,
-		connspec: "beepish+tls://10.8.1.158:30359",
-		protocols: []string{"json"},
-    timestamp: 1440001142628,
-    // ["reboot","",1],["report","",1]
-		classes: []ServiceProxyClass{
-			ServiceProxyClass {
+		connspec:         "beepish+tls://10.8.1.158:30359",
+		protocols:        []string{"json"},
+		timestamp:        1440001142628,
+		// ["reboot","",1],["report","",1]
+		classes: []serviceProxyClass{
+			serviceProxyClass{
 				className: "bgdispatcher",
-				actions: []ActionDescription {
-					ActionDescription{
+				actions: []actionDescription{
+					actionDescription{
 						actionName: "poll",
-						crudTags: "",
-						version: 1,
+						crudTags:   "",
+						version:    1,
 					},
-          ActionDescription{
-            actionName: "reboot",
-            crudTags: "",
-            version: 1,
-          },
-          ActionDescription{
-            actionName: "report",
-            crudTags: "",
-            version: 1,
-          },
+					actionDescription{
+						actionName: "reboot",
+						crudTags:   "",
+						version:    1,
+					},
+					actionDescription{
+						actionName: "report",
+						crudTags:   "",
+						version:    1,
+					},
 				},
 			},
 		},
 	}
 
-	b,err := json.Marshal(&serviceProxy)
-  if err != nil {
-    t.Fatalf("unexpected error `%s` while serializing service record", err)
-  }
-  if !bytes.Equal(serviceProxyClassRecordsRaw,b) {
-    t.Fatalf("serialized service record did not match expected.\nexpected: `%s`\ngot:      `%s`\n", serviceProxyClassRecordsRaw, b)
-  }
+	b, err := json.Marshal(&serviceProxy)
+	if err != nil {
+		t.Fatalf("unexpected error `%s` while serializing service record", err)
+	}
+	if !bytes.Equal(serviceProxyClassRecordsRaw, b) {
+		t.Fatalf("serialized service record did not match expected.\nexpected: `%s`\ngot:      `%s`\n", serviceProxyClassRecordsRaw, b)
+	}
 }

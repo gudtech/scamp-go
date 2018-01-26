@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 )
 
-type MessageChan chan *Message
-
+// Message represents a scamp message TODO: godoc
 type Message struct {
-	Action   string
-	Envelope envelopeFormat
-	// TODO: how do RequestId's fit in again? NOTE: from (SCAMP repo) -"Set to 18 random base64 bytes"
-	RequestId        int
+	Action           string
+	Envelope         envelopeFormat
+	RequestID        int // TODO: how do RequestID's fit in again? NOTE: from (SCAMP repo) -"Set to 18 random base64 bytes"
 	Version          int
 	MessageType      messageType
 	packets          []*Packet
@@ -22,86 +20,92 @@ type Message struct {
 	ErrorCode        string
 }
 
-// Notes from scamp repo:
-// action	    request	  The full action name, e.g. Customer.Order.create
-// envelope	  request	  String identifying the envelope format, e.g. json
-// error	    reply	    Humanreadable error if present
-// error_code	reply	    Error code if present
-// message_id	both	    String used to correlate requests to responses in the event of reordering. RECOMMENDED 18 random bytes base64-encoded.
-// station	  request	  A station ticket, see Ticket format. Optional
-// ticket	    request	  An authorization ticket, see Ticket format. Optional
-// type	      both	    request or reply
-// version	  request	  Action version number
-
+// NewMessage creates a new scamp message
 func NewMessage() (msg *Message) {
 	msg = new(Message)
 	return
 }
 
+// NewRequestMessage creates a new scamp message and sets it's type to 1 (request)
 func NewRequestMessage() (msg *Message) {
 	msg = new(Message)
 	msg.SetMessageType(1)
 	return
 }
 
+// NewResponseMessage creates a new scamp message and sets it's type to 2 (response)
 func NewResponseMessage() (msg *Message) {
 	msg = new(Message)
 	msg.SetMessageType(2)
 	return
 }
 
+// SetAction sets teh scamp action name for a message
 func (msg *Message) SetAction(action string) {
 	msg.Action = action
 }
 
+// SetEnvelope sets the envelope type fr a message (JSON, or JSONSTORE)
 func (msg *Message) SetEnvelope(env envelopeFormat) {
 	msg.Envelope = env
 }
 
+// SetVersion sets the api version of the message
 func (msg *Message) SetVersion(version int) {
 	msg.Version = version
 }
 
+// SetMessageType sets the type of message (request or response)
 func (msg *Message) SetMessageType(mtype messageType) {
 	msg.MessageType = mtype
 }
 
-func (msg *Message) SetRequestId(requestId int) {
-	msg.RequestId = requestId
+// SetRequestID sets the msg.RequestID
+func (msg *Message) SetRequestID(requestID int) {
+	msg.RequestID = requestID
 }
 
+// SetTicket sets the auth ticket for the message
 func (msg *Message) SetTicket(ticket string) {
 	msg.Ticket = ticket
 }
 
+// SetIdentifyingToken sets the msg.IdentifyingToken
 func (msg *Message) SetIdentifyingToken(token string) {
 	msg.IdentifyingToken = token
 }
 
+// SetError sets the msg.Error
 func (msg *Message) SetError(err string) {
 	msg.Error = err
 }
 
+// SetErrorCode sets the msg.ErrorCode
 func (msg *Message) SetErrorCode(errCode string) {
 	msg.ErrorCode = errCode
 }
 
+// GetError returns msg.Error
 func (msg *Message) GetError() (err string) {
 	return msg.Error
 }
 
+// GetErrorCode returns msg.ErrorCode
 func (msg *Message) GetErrorCode() (errCode string) {
 	return msg.ErrorCode
 }
 
+// GetTicket returns msg.Ticket
 func (msg *Message) GetTicket() (ticket string) {
 	return msg.Ticket
 }
 
+// GetIdentifyingToken returns msg.IdentifyingToken
 func (msg *Message) GetIdentifyingToken() (token string) {
 	return msg.IdentifyingToken
 }
 
+// Write writes the packet data (body) and appends it to msg.packets
 func (msg *Message) Write(blob []byte) (n int, err error) {
 	// TODO: should this be a sync add?
 	msg.bytesWritten += uint64(len(blob))
@@ -110,9 +114,11 @@ func (msg *Message) Write(blob []byte) (n int, err error) {
 	return len(blob), nil
 }
 
-var MSG_CHUNK_SIZE = 256 * 1024
+var msgChunkSize = 256 * 1024
 
-func (msg *Message) WriteJson(data interface{}) (n int, err error) {
+// WriteJSON takes the message payload, encodes it as JSON and appends it (in chunks)
+// to msg.packets
+func (msg *Message) WriteJSON(data interface{}) (n int, err error) {
 	var buf bytes.Buffer
 	err = json.NewEncoder(&buf).Encode(data)
 	if err != nil {
@@ -123,18 +129,18 @@ func (msg *Message) WriteJson(data interface{}) (n int, err error) {
 
 	// Trace.Printf("WriteJson data size: %d", len(buf.Bytes()))
 
-	if len(buf.Bytes()) > MSG_CHUNK_SIZE {
+	if len(buf.Bytes()) > msgChunkSize {
 		slice := buf.Bytes()[:]
 		for {
 			// Trace.Printf("slice size: %d", len(slice))
 
-			if len(slice) < MSG_CHUNK_SIZE {
+			if len(slice) < msgChunkSize {
 				msg.packets = append(msg.packets, &Packet{packetType: DATA, body: slice})
 				break
 			} else {
-				chunk := make([]byte, MSG_CHUNK_SIZE)
-				copy(chunk, slice[0:MSG_CHUNK_SIZE])
-				slice = slice[MSG_CHUNK_SIZE:]
+				chunk := make([]byte, msgChunkSize)
+				copy(chunk, slice[0:msgChunkSize])
+				slice = slice[msgChunkSize:]
 				msg.packets = append(msg.packets, &Packet{packetType: DATA, body: chunk})
 			}
 		}
@@ -146,6 +152,7 @@ func (msg *Message) WriteJson(data interface{}) (n int, err error) {
 	return
 }
 
+// BytesWritten returns msg.bytesWritten
 func (msg *Message) BytesWritten() uint64 {
 	return msg.bytesWritten
 }
@@ -155,7 +162,7 @@ func (msg *Message) toPackets(msgNo uint64) []*Packet {
 		Action:           msg.Action,
 		Envelope:         msg.Envelope,
 		Version:          msg.Version,
-		RequestId:        msg.RequestId, // TODO: nope, can't do this
+		RequestID:        msg.RequestID, // TODO: nope, can't do this
 		MessageType:      msg.MessageType,
 		Error:            msg.Error,
 		ErrorCode:        msg.ErrorCode,
@@ -187,12 +194,9 @@ func (msg *Message) toPackets(msgNo uint64) []*Packet {
 	return packets
 }
 
+// Bytes reads from all message packets, writes them to a buffer and returns the buffer.Bytes()
 func (msg *Message) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	// Info.Printf("packet count: %d", len(msg.packets))
-	// for _,pkt := range msg.packets {
-	//   Info.Printf("packet len: %d", len(pkt.body))
-	// }
 	for _, pkt := range msg.packets {
 		buf.Write(pkt.body)
 	}

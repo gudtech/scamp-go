@@ -1,33 +1,30 @@
 package scamp
 
 import (
-  "os"
-  "flag"
+	"flag"
+	"os"
 
-  "testing"
+	"testing"
 )
 
 func TestRequester(t *testing.T) {
-  var err error
+	var err error
 
-  msg := NewRequestMessage()
-  msg.SetEnvelope(ENVELOPE_JSON)
+	msg := NewRequestMessage()
+	msg.SetEnvelope(EnvelopeJSON)
 
-  responseChan,err := MakeJsonRequest("main", "Logger.info", 1, msg)
-  if err != nil {
-    t.Fatalf(err.Error())
-  }
+	resp, err := MakeJSONRequest("main", "Logger.info", 1, msg)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if resp == nil || len(resp.Bytes()) == 0 {
+		t.Fail()
+	}
 
-  select {
-  case resp := <-responseChan:
-    panicjson(resp)
-  default:
-    panicjson("no way")
-  }
 }
 
 func TestMain(m *testing.M) {
-  flag.Parse()
-  Initialize("/etc/SCAMP/soa.conf")
-  os.Exit(m.Run())
+	flag.Parse()
+	Initialize("/etc/SCAMP/soa.conf")
+	os.Exit(m.Run())
 }

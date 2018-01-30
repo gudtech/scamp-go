@@ -114,7 +114,7 @@ func (msg *Message) Write(blob []byte) (n int, err error) {
 	return len(blob), nil
 }
 
-var msgChunkSize = 256 * 1024
+var msgChunkSize = 128 * 1024
 
 // WriteJSON takes the message payload, encodes it as JSON and appends it (in chunks)
 // to msg.packets

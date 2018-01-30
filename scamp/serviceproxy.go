@@ -24,7 +24,7 @@ type ServiceProxyDiscoveryExtension struct {
 	Vmin   int           `json:"vmin"`
 	Vmaj   int           `json:"vmaj"`
 	AcSec  []interface{} `json:"acsec"`
-	AcName []string      `json:"acname"`
+	AcName []interface{} `json:"acname"`
 	AcVer  []interface{} `json:"acver"`
 	AcEnv  []interface{} `json:"acenv"`
 	AcFlag []interface{} `json:"acflag"`

@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-var defaultCache *serviceCache
+var defaultCache *ServiceCache
 
 //Initialize performs package-level setup. This must be called before calling any other package functionality, as it sets up global configuration.
 func Initialize(configPath string) (err error) {
@@ -20,7 +20,7 @@ func Initialize(configPath string) (err error) {
 		return
 	}
 
-	defaultCache, err = newServiceCache(cachePath)
+	defaultCache, err = NewServiceCache(cachePath)
 	if err != nil {
 		return
 	}

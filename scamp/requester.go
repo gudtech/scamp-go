@@ -21,6 +21,7 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
 
+	fmt.Printf("searching for action\n")
 	serviceProxies, err = defaultCache.SearchByAction(sector, action, version, msgType)
 	if err != nil {
 		return
@@ -29,6 +30,7 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		err = fmt.Errorf("could not find %s:%s~%d#%s", sector, action, version, msgType)
 		return
 	}
+	fmt.Printf("got action\n")
 
 	msg.SetAction(action)
 	msg.SetVersion(version)
@@ -37,16 +39,20 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	var responseChan chan *Message
 
 	for _, serviceProxy := range serviceProxies {
+		fmt.Printf("getting client\n")
 		client, err := serviceProxy.GetClient()
 		if err != nil {
 			continue
 		}
+		fmt.Printf("got client\n")
 
+		fmt.Printf("sending msg\n")
 		responseChan, err = client.Send(msg)
 		if err == nil {
 			sent = true
 			break
 		}
+		fmt.Printf("finished sending\n")
 	}
 
 	if !sent {

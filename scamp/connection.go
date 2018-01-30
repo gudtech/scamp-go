@@ -233,11 +233,14 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 	return
 }
 
+const RetryLimit = 50
+
 // Send sends a scamp message using the current *Connection
 func (conn *Connection) Send(msg *Message) (err error) {
 	if conn.isClosed {
 		err = fmt.Errorf("connection already closed")
 	}
+
 	conn.readWriterLock.Lock()
 	defer conn.readWriterLock.Unlock()
 	if msg.RequestID == 0 {
@@ -253,6 +256,7 @@ func (conn *Connection) Send(msg *Message) (err error) {
 	for _, pkt := range msg.toPackets(outgoingmsgno) {
 		// Trace.Printf("sending pkt %d", i)
 
+		retries := 0
 		if enableWriteTee {
 			writer := io.MultiWriter(conn.readWriter, conn.scampDebugger)
 			_, err := pkt.Write(writer)
@@ -271,7 +275,13 @@ func (conn *Connection) Send(msg *Message) (err error) {
 						err = fmt.Errorf("connection closed")
 						break
 					}
+
+					if retries > RetryLimit {
+						return fmt.Errorf("Retried too many times: %s", err)
+					}
+
 					Error.Printf("error writing packet: `%s` (retrying)", err)
+					retries += 1
 					continue
 				}
 				break

@@ -1,7 +1,6 @@
 package scamp
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -73,17 +72,14 @@ func (client *Client) Send(msg *Message) (responseChan chan *Message, err error)
 
 	client.nextRequestID++
 	msg.RequestID = client.nextRequestID
-	fmt.Printf("sending connection msg\n")
 	err = client.conn.Send(msg)
 	if err != nil {
 		// Trace.Printf("SCAMP send error: %s", err)
 		return
 	}
-	fmt.Printf("finished connection msg\n")
 
 	if msg.MessageType == MessageTypeRequest {
 		// Trace.Printf("sending request so waiting for reply")
-		fmt.Printf("waiting for reply\n")
 		responseChan = make(chan *Message)
 		client.openRepliesLock.Lock()
 		client.openReplies[msg.RequestID] = responseChan

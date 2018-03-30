@@ -117,3 +117,5 @@ perl/pm_to_blib
 node_modules/
 
 fixtures/
+
+vendor/

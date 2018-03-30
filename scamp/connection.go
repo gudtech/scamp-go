@@ -236,7 +236,10 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 const RetryLimit = 50
 
 // Send sends a scamp message using the current *Connection
-func (conn *Connection) Send(msg *Message) (err error) {
+func (conn *Connection) Send(msg *Message) (err error) {\
+	if conn == nil {
+		return fmt.Errorf("cannot send on nil connection")
+	}
 	if conn.isClosed {
 		err = fmt.Errorf("connection already closed")
 	}

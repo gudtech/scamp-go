@@ -236,7 +236,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 const RetryLimit = 50
 
 // Send sends a scamp message using the current *Connection
-func (conn *Connection) Send(msg *Message) (err error) {\
+func (conn *Connection) Send(msg *Message) (err error) {
 	if conn == nil {
 		return fmt.Errorf("cannot send on nil connection")
 	}
@@ -263,9 +263,9 @@ func (conn *Connection) Send(msg *Message) (err error) {\
 		if enableWriteTee {
 			writer := io.MultiWriter(conn.readWriter, conn.scampDebugger)
 			_, err := pkt.Write(writer)
-			conn.scampDebugger.file.Write([]byte("\n"))
+			// conn.scampDebugger.file.Write([]byte("\n"))
 			if err != nil {
-				Error.Printf("error writing packet: `%s`", err)
+				Error.Printf("error writing packet: %s", err)
 				return err
 			}
 		} else {
@@ -278,13 +278,18 @@ func (conn *Connection) Send(msg *Message) (err error) {\
 						err = fmt.Errorf("connection closed")
 						break
 					}
+					//TODO: attempt to reconnect
+					if strings.Contains(err.Error(), "broken pipe") {
+						err = fmt.Errorf("connection closed: %s", err)
+						break
+					}
 
 					if retries > RetryLimit {
 						return fmt.Errorf("Retried too many times: %s", err)
 					}
 
-					Error.Printf("error writing packet: `%s` (retrying)", err)
-					retries += 1
+					Error.Printf("error writing packet: %s (retrying)", err)
+					retries++
 					continue
 				}
 				break
@@ -293,7 +298,6 @@ func (conn *Connection) Send(msg *Message) (err error) {\
 
 	}
 	conn.readWriter.Flush()
-	// Trace.Printf("done sending msg")
 
 	return
 }

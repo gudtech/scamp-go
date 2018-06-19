@@ -127,7 +127,6 @@ func (pkt *Packet) parseHeader() (err error) {
 }
 
 func (pkt *Packet) Write(writer io.Writer) (written int, err error) {
-	// Trace.Printf("writing packet...")
 	written = 0
 
 	var packetTypeBytes []byte
@@ -153,7 +152,7 @@ func (pkt *Packet) Write(writer io.Writer) (written int, err error) {
 	if pkt.packetType == HEADER {
 		err = pkt.packetHeader.Write(bodyBuf)
 		if err != nil {
-			err = fmt.Errorf("err writing packet header: `%s`", err)
+			err = fmt.Errorf("err writing packet header: %s", err)
 			return
 		}
 		// } else if pkt.packetType == ACK {
@@ -166,15 +165,14 @@ func (pkt *Packet) Write(writer io.Writer) (written int, err error) {
 	}
 
 	bodyBytes := bodyBuf.Bytes()
-	// Trace.Printf("writing pkt: (%d, `%s`)", pkt.msgNo, packetTypeBytes)
-	// Trace.Printf("packet_body: `%s`", bodyBytes)
 
 	headerBytesWritten, err := fmt.Fprintf(writer, "%s %d %d\r\n", packetTypeBytes, pkt.msgNo, len(bodyBytes))
 	written = written + headerBytesWritten
 	if err != nil {
-		err = fmt.Errorf("err writing packet header: `%s`", err)
+		err = fmt.Errorf("err writing packet header: %s", err)
 		return
 	}
+
 	bodyBytesWritten, err := writer.Write(bodyBytes)
 	written = written + bodyBytesWritten
 	if err != nil {

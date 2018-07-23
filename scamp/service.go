@@ -277,11 +277,12 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 
 // Stop closes the service's net.Listener
 func (serv *Service) Stop() {
-	// Sometimes we Stop() before service after service has been init but before it is started
-	// The usual case is a bad config in another plugin
 	if serv.listener != nil {
 		serv.listener.Close()
 	}
+	fmt.Println("shutting down")
+	time.Sleep(time.Second * 10)
+	fmt.Println("shutdown done")
 }
 
 // MarshalText serializes a scamp service

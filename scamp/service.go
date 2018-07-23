@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net"
+	"os"
 	// "encoding/json"
 	"bytes"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"sync"
 	"sync/atomic"
 )
+
+var defaultlivenessPath = "/backplane/running-services/"
 
 // Two minute timeout on clients
 var msgTimeout = time.Second * 120
@@ -116,7 +119,7 @@ func NewServiceExplicitCert(sector string, serviceSpec string, humanName string,
 	// go PrintStatsLoop(serv, time.Duration(15)*time.Second, serv.statsCloseChan)
 
 	// Trace.Printf("done initializing service")
-
+	defaultlivenessPath = defaultlivenessPath + humanName
 	return
 }
 
@@ -165,6 +168,10 @@ func (serv *Service) Register(name string, callback ServiceActionFunc) (err erro
 
 //Run starts a scamp service
 func (serv *Service) Run() {
+	err := serv.createKubeLivenessFile()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 forLoop:
 	for {
@@ -350,4 +357,26 @@ func (serv *Service) generateRandomName() {
 	buffer.WriteString("-")
 	buffer.WriteString(base64RandBytes[0:])
 	serv.name = string(buffer.Bytes())
+}
+
+func (serv *Service) createKubeLivenessFile() error {
+	fmt.Println("path: ", defaultlivenessPath)
+	_, err := os.Stat(defaultlivenessPath)
+	if os.IsNotExist(err) {
+		file, err := os.Create(defaultlivenessPath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		return nil
+	}
+	return err
+}
+
+func (serv *Service) removeKubeLivenessFile() error {
+	err := os.Remove(defaultlivenessPath)
+	if err != nil {
+		return err
+	}
+	return nil
 }

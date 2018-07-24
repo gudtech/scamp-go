@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 )
 
-var defaultlivenessPath = "/backplane/running-services/"
+var livenessDirPath = "/backplane/running-services/"
 
 // Two minute timeout on clients
 var msgTimeout = time.Second * 120
@@ -119,7 +119,6 @@ func NewServiceExplicitCert(sector string, serviceSpec string, humanName string,
 	// go PrintStatsLoop(serv, time.Duration(15)*time.Second, serv.statsCloseChan)
 
 	// Trace.Printf("done initializing service")
-	defaultlivenessPath = defaultlivenessPath + humanName
 	return
 }
 
@@ -281,7 +280,10 @@ func (serv *Service) Stop() {
 		serv.listener.Close()
 	}
 	fmt.Println("shutting down")
-	time.Sleep(time.Second * 10)
+	err := serv.removeKubeLivenessFile()
+	if err != nil {
+		fmt.Println("could not remove liveness file: ", err)
+	}
 	fmt.Println("shutdown done")
 }
 
@@ -360,22 +362,28 @@ func (serv *Service) generateRandomName() {
 	serv.name = string(buffer.Bytes())
 }
 
+// TODO: we should dicuss movng the path to the liveness file to a config file (like soa.conf) or having it declared
+// when creating the service
 func (serv *Service) createKubeLivenessFile() error {
-	fmt.Println("path: ", defaultlivenessPath)
-	_, err := os.Stat(defaultlivenessPath)
-	if os.IsNotExist(err) {
-		file, err := os.Create(defaultlivenessPath)
+
+	if _, err := os.Stat(livenessDirPath); os.IsNotExist(err) {
+		err = os.MkdirAll(livenessDirPath, 0755)
 		if err != nil {
 			return err
 		}
-		defer file.Close()
-		return nil
 	}
-	return err
+
+	file, err := os.Create(livenessDirPath + serv.humanName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
 }
 
 func (serv *Service) removeKubeLivenessFile() error {
-	err := os.Remove(defaultlivenessPath)
+	path := livenessDirPath + serv.humanName
+	err := os.Remove(path)
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net"
+	"os"
 	// "encoding/json"
 	"bytes"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"sync"
 	"sync/atomic"
 )
+
+var livenessDirPath = "/backplane/running-services/"
 
 // Two minute timeout on clients
 var msgTimeout = time.Second * 120
@@ -116,7 +119,6 @@ func NewServiceExplicitCert(sector string, serviceSpec string, humanName string,
 	// go PrintStatsLoop(serv, time.Duration(15)*time.Second, serv.statsCloseChan)
 
 	// Trace.Printf("done initializing service")
-
 	return
 }
 
@@ -165,6 +167,10 @@ func (serv *Service) Register(name string, callback ServiceActionFunc) (err erro
 
 //Run starts a scamp service
 func (serv *Service) Run() {
+	err := serv.createKubeLivenessFile()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 forLoop:
 	for {
@@ -270,11 +276,15 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 
 // Stop closes the service's net.Listener
 func (serv *Service) Stop() {
-	// Sometimes we Stop() before service after service has been init but before it is started
-	// The usual case is a bad config in another plugin
 	if serv.listener != nil {
 		serv.listener.Close()
 	}
+	fmt.Println("shutting down")
+	err := serv.removeKubeLivenessFile()
+	if err != nil {
+		fmt.Println("could not remove liveness file: ", err)
+	}
+	fmt.Println("shutdown done")
 }
 
 // MarshalText serializes a scamp service
@@ -350,4 +360,32 @@ func (serv *Service) generateRandomName() {
 	buffer.WriteString("-")
 	buffer.WriteString(base64RandBytes[0:])
 	serv.name = string(buffer.Bytes())
+}
+
+// TODO: we should dicuss movng the path to the liveness file to a config file (like soa.conf) or having it declared
+// when creating the service
+func (serv *Service) createKubeLivenessFile() error {
+
+	if _, err := os.Stat(livenessDirPath); os.IsNotExist(err) {
+		err = os.MkdirAll(livenessDirPath, 0755)
+		if err != nil {
+			return err
+		}
+	}
+
+	file, err := os.Create(livenessDirPath + serv.humanName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
+}
+
+func (serv *Service) removeKubeLivenessFile() error {
+	path := livenessDirPath + serv.humanName
+	err := os.Remove(path)
+	if err != nil {
+		return err
+	}
+	return nil
 }

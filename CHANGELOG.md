@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.10.9]
+- create file in `/backplane/running-services` for kubernetes liveness checks
+
 ## [0.10.8]
 - Fixed error from attempting to resend on broken pipe
 - switched to Dep for package management

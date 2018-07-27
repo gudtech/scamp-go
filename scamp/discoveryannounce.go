@@ -22,7 +22,7 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 	config := DefaultConfig()
 	announcer.multicastDest = &net.UDPAddr{IP: config.DiscoveryMulticastIP(), Port: config.DiscoveryMulticastPort()}
 	// announcer.multicastDest = &net.UDPAddr{IP: 127.0.0.1, Port: config.DiscoveryMulticastPort()}
-	announcer.multicastConn, err = localMulticastPacketConn()
+	announcer.multicastConn, err = localMulticastPacketConn(config)
 	if err != nil {
 		return
 	}

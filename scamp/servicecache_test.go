@@ -68,7 +68,7 @@ func TestScanNoNewLineCert(t *testing.T) {
 	initSCAMPLogger()
 
 	s := bufio.NewScanner(bytes.NewReader(weirdEntries))
-	cache, err := NewServiceCache("/tmp/blah")
+	cache, err := NewServiceCache("./../fixtures/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache: `%s`", err)
 	}
@@ -77,14 +77,14 @@ func TestScanNoNewLineCert(t *testing.T) {
 		t.Fatalf("failed: `%s`", err)
 	}
 
-	if cache.Size() != 2 {
-		t.Fatalf("expected 2 entries in the cache after scanning, got %d", cache.Size())
+	if cache.Size() != 1 {
+		t.Fatalf("expected 1 entries in the cache after scanning, got %d", cache.Size())
 	}
 
 }
 
 func TestRegisterOnServiceCache(t *testing.T) {
-	cache, err := NewServiceCache("/tmp/blah")
+	cache, err := NewServiceCache("./../fixtures/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache")
 	}
@@ -217,7 +217,7 @@ DzZqcZjWY5gs9UaTHBBMAwp5G3tr1uQ6Fgi3mFlo1tA9J5Vex8CEaw+U0YklidTKMVDN3y8OLZsICLwT
 `)
 
 func TestSearchByAction(t *testing.T) {
-	cache, err := NewServiceCache("/Users/xavierlange/code/gudtech/workspace/src/github.com/gudtech/scamp-go/fixtures/sample_discovery_cache")
+	cache, err := NewServiceCache("./../fixtures/sample_discovery_cache")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

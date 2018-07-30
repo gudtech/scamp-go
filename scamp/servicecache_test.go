@@ -230,7 +230,11 @@ func TestSearchByAction(t *testing.T) {
 
 	// t.Fatalf("%s", cache.actionIndex)
 
-	serviceProxy := cache.SearchByAction("main", "Logger.info", 1, "json")
+	serviceProxy, err := cache.SearchByAction("main", "Logger.info", 1, "json")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
 	if serviceProxy == nil {
 		t.Fatalf("hmm, no hit!")
 	}

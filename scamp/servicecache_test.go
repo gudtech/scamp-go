@@ -28,7 +28,7 @@ func BenchmarkReadingProductionAnnounceCache(b *testing.B) {
 				panic("could not open file")
 			}
 
-			cache, err := newServiceCache("/tmp/blah")
+			cache, err := NewServiceCache("/tmp/blah")
 			if err != nil {
 				panic("wah wah")
 			}
@@ -50,7 +50,7 @@ func TestReadAnnounceCache(t *testing.T) {
 
 	s := bufio.NewScanner(file)
 
-	cache, err := newServiceCache("/tmp/blah")
+	cache, err := NewServiceCache("/tmp/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache: `%s`", err)
 	}
@@ -68,7 +68,7 @@ func TestScanNoNewLineCert(t *testing.T) {
 	initSCAMPLogger()
 
 	s := bufio.NewScanner(bytes.NewReader(weirdEntries))
-	cache, err := newServiceCache("/tmp/blah")
+	cache, err := NewServiceCache("/tmp/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache: `%s`", err)
 	}
@@ -84,7 +84,7 @@ func TestScanNoNewLineCert(t *testing.T) {
 }
 
 func TestRegisterOnServiceCache(t *testing.T) {
-	cache, err := newServiceCache("/tmp/blah")
+	cache, err := NewServiceCache("/tmp/blah")
 	if err != nil {
 		t.Fatalf("could not create new service cache")
 	}
@@ -217,7 +217,7 @@ DzZqcZjWY5gs9UaTHBBMAwp5G3tr1uQ6Fgi3mFlo1tA9J5Vex8CEaw+U0YklidTKMVDN3y8OLZsICLwT
 `)
 
 func TestSearchByAction(t *testing.T) {
-	cache, err := newServiceCache("/Users/xavierlange/code/gudtech/workspace/src/github.com/gudtech/scamp-go/fixtures/sample_discovery_cache")
+	cache, err := NewServiceCache("/Users/xavierlange/code/gudtech/workspace/src/github.com/gudtech/scamp-go/fixtures/sample_discovery_cache")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

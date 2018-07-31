@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/gudtech/scamp-go.svg?style=svg)](https://circleci.com/gh/gudtech/scamp-go)
+
 SCAMP Go Lang Edition
 =====================
 

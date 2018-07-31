@@ -31,7 +31,7 @@ func TestWritePacketHeader(t *testing.T) {
 		RequestID:   1,
 		Version:     1,
 	}
-	expected := []byte(`{"action":"hello.helloworld","envelope":"json","request_id":1,"type":"request","version":1}
+	expected := []byte(`{"action":"hello.helloworld","envelope":"json","request_id":1,"ticket":"","identifying_token":"","type":"request","version":1}
 `)
 
 	buf := new(bytes.Buffer)

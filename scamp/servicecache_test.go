@@ -45,7 +45,7 @@ func TestReadAnnounceCache(t *testing.T) {
 
 	file, err := os.Open("./../fixtures/announce_cache")
 	if err != nil {
-		return
+		t.Fatalf("could not open sample announce cache: `%s`", err)
 	}
 
 	s := bufio.NewScanner(file)

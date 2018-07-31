@@ -23,7 +23,7 @@ func TestScanCertificate(t *testing.T) {
 func BenchmarkReadingProductionAnnounceCache(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			file, err := os.Open("/Users/xavierlange/code/gudtech/scamp-patrol/fixtures/discovery.sample")
+			file, err := os.Open("./../fixtures/sample_discovery_cache")
 			if err != nil {
 				panic("could not open file")
 			}
@@ -43,7 +43,7 @@ func BenchmarkReadingProductionAnnounceCache(b *testing.B) {
 func TestReadAnnounceCache(t *testing.T) {
 	initSCAMPLogger()
 
-	file, err := os.Open("/Users/xavierlange/code/gudtech/scamp-go/fixtures/announce_cache")
+	file, err := os.Open("./../fixtures/announce_cache")
 	if err != nil {
 		return
 	}

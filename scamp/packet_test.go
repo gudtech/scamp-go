@@ -156,14 +156,15 @@ func TestWriteHeaderPacket(t *testing.T) {
 		},
 		body: []byte(""),
 	}
-	expected := []byte("HEADER 0 92\r\n{\"action\":\"hello.helloworld\",\"envelope\":\"json\",\"request_id\":1,\"type\":\"request\",\"version\":1}\nEND\r\n")
-
+	expected := []byte("HEADER 0 127\r\n{\"action\":\"hello.helloworld\",\"envelope\":\"json\",\"request_id\":1,\"ticket\":\"\",\"identifying_token\":\"\",\"type\":\"request\",\"version\":1}\nEND\r\n")
 	buf := new(bytes.Buffer)
 	bytesWritten, err := packet.Write(buf)
 	if err != nil {
 		t.Errorf("unexpected error while writing to buf `%s`", err)
 		t.FailNow()
 	} else if bytesWritten != len(expected) {
+		fmt.Printf("%s", expected)
+		fmt.Printf("%s", buf)
 		t.Errorf("failed to write all bytes. expected %d got %d", len(expected), bytesWritten)
 		t.FailNow()
 	}

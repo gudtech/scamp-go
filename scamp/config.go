@@ -145,6 +145,11 @@ func (conf *Config) DiscoveryMulticastPort() (port int) {
 	return
 }
 
+func (conf *Config) LocalDiscoveryMulticast() bool {
+	_, ok := conf.values["discovery.local_multicast"]
+	return ok
+}
+
 // Get returns the value of a given config option as a string, or false if it is not set.
 func (conf *Config) Get(key string) (value string, ok bool) {
 	valueBytes, ok := conf.values[key]

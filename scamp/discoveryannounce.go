@@ -73,8 +73,3 @@ func (announcer *DiscoveryAnnouncer) doAnnounce() (err error) {
 
 	return
 }
-
-// Loop for broadcasting service in ServiceProxy format
-// AnnounceService(*Service) {
-
-// }

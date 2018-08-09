@@ -388,21 +388,6 @@ func (sp *serviceProxy) validateSignature() (hexSha1 string, err error) {
 	return
 }
 
-// commenting this out because it's returning a client not a connection
-// func (sp *ServiceProxy) GetConnection() (client *Client, err error) {
-// 	if sp.client != nil {
-// 		client = sp.client
-// 		return
-// 	}
-
-// 	sp.client, err = Dial(sp.connspec)
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	return
-// }
-
 func (sp *serviceProxy) MarshalJSON() (b []byte, err error) {
 	arr := make([]interface{}, 9)
 	arr[0] = &sp.version

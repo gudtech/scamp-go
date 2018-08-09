@@ -259,8 +259,6 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 		cache.storeNoLock(serviceProxy)
 	}
 
-	// fmt.Println("entries:", entries)
-
 	return
 }
 

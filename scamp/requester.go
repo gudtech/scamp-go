@@ -2,6 +2,8 @@ package scamp
 
 import (
 	"fmt"
+	"math/rand"
+	"sort"
 	"time"
 )
 
@@ -18,6 +20,10 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 
+	err = DefaultCache.Refresh()
+	if err != nil {
+		return
+	}
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
 
@@ -36,12 +42,30 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	sent := false
 	var responseChan chan *Message
 
+	var clients []*Client
 	for _, serviceProxy := range serviceProxies {
-		client, err := serviceProxy.GetClient()
-		if err != nil {
-			continue
-		}
+		if serviceProxy != nil {
+			client, err := serviceProxy.GetClient()
+			if err != nil || client == nil {
+				continue
+			}
 
+			clients = append(clients, client)
+		}
+	}
+
+	rand.Shuffle(len(clients), func(i, j int) {
+		clients[i], clients[j] = clients[j], clients[i]
+	})
+
+	// Sort based on queue depth.
+	sort.Slice(clients, func(i, j int) bool {
+		ilen := len(clients[i].openReplies)
+		jlen := len(clients[j].openReplies)
+		return ilen < jlen
+	})
+
+	for _, client := range clients {
 		responseChan, err = client.Send(msg)
 		if err == nil {
 			sent = true

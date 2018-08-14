@@ -3,18 +3,20 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:d3a523b16238b152d365ab5763644cdc88bc7542bf6837dc214ab98731cabe3d"
   name = "golang.org/x/net"
   packages = [
     "bpf",
     "internal/iana",
     "internal/socket",
-    "ipv4"
+    "ipv4",
   ]
+  pruneopts = "UT"
   revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8c8c291d4c27a16604ec4ebcbba8eca1634feaf98ffa8cf7e7eb6bec83506e8d"
+  input-imports = ["golang.org/x/net/ipv4"]
   solver-name = "gps-cdcl"
   solver-version = 1

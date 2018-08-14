@@ -163,12 +163,12 @@ func (cache *ServiceCache) Refresh() (err error) {
 		err = fmt.Errorf("cannot use cache path: `%s` is a directory", cache.path)
 		return
 	}
-	// Trace.Printf("mtime: %s\n", stat.ModTime())
 
 	cacheHandle, err := os.Open(cache.path)
 	if err != nil {
 		return
 	}
+	defer cacheHandle.Close()
 
 	s := bufio.NewScanner(cacheHandle)
 	err = cache.DoScan(s)
@@ -258,8 +258,6 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 
 		cache.storeNoLock(serviceProxy)
 	}
-
-	// fmt.Println("entries:", entries)
 
 	return
 }

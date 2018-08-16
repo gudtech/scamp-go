@@ -4,7 +4,7 @@ import "testing"
 import "encoding/json"
 import "bytes"
 
-var serviceProxyClassRecordsRaw = []byte(`[3,"bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75","main",1,5,"beepish+tls://10.8.1.158:30359",["json"],[["bgdispatcher",["poll","",1],["reboot","",1],["report","",1]]],1440001142628.000000]`)
+var serviceProxyClassRecordsRaw = []byte(`[3,"bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75","main",0.1,5,"beepish+tls://10.8.1.158:30359",["json"],[["bgdispatcher",["poll","",1],["reboot","",1],["report","",1]]],1440001142628.000000]`)
 var serviceProxySigRaw = []byte(`CPuxVvNppUNVIGSlaNUW6fpXp2h31/AKX/rAdzyRRsUks8qsjq5/9X5ZUsz85JlPhknxazjlX81U
 MSc1qsL1BZvPeRZ+8NXaT58j7UR75mDbOlfv5KbqtdjBA08TmjXOfFy2JG7+iQG3zG12HNXU/Yc+
 5yhE5i6eA2/Lfxz8aG9221y/qeDJ49DPXjAJa1PFdVIO2aZno1r3bcBKvu6O30lGakgZYTSfFVJC
@@ -80,7 +80,7 @@ func TestServiceProxySerialize(t *testing.T) {
 		version:          3,
 		ident:            "bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75",
 		sector:           "main",
-		weight:           1,
+		weight:           0.1,
 		announceInterval: defaultAnnounceInterval,
 		connspec:         "beepish+tls://10.8.1.158:30359",
 		protocols:        []string{"json"},

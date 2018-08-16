@@ -35,7 +35,7 @@ type serviceProxy struct {
 	version          int
 	ident            string
 	sector           string
-	weight           int
+	weight           float64
 	announceInterval int
 	connspec         string
 	protocols        []string

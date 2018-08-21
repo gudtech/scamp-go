@@ -51,6 +51,7 @@ type serviceProxy struct {
 
 func (sp *serviceProxy) GetClient() (client *Client, err error) {
 	sp.clientM.Lock()
+	defer sp.clientM.Unlock()
 
 	//TODO: what really needs to happen is the removal of closed client from sp.client. Checking `sp.client.isClosed` is a bandaid
 	if sp.client == nil || sp.client.isClosed {
@@ -67,10 +68,13 @@ func (sp *serviceProxy) GetClient() (client *Client, err error) {
 	}
 
 	client = sp.client
+	if client == nil {
+		return nil, fmt.Errorf("client is nil")
+	}
+
 	//using ident so that we can set the service proxy's client to nil in client.Close()
 	client.spIdent = sp.ident
 
-	sp.clientM.Unlock()
 	return
 }
 

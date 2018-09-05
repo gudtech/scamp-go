@@ -40,7 +40,10 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 
 // Stop notifies stopSig channel to stop announcer
 func (announcer *DiscoveryAnnouncer) Stop() {
-	announcer.stopSig <- true
+	select {
+	case announcer.stopSig <- true:
+	default:
+	}
 }
 
 // Track indicates that announcer should track and announce service
@@ -59,6 +62,7 @@ func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
 		case <-announcer.stopSig:
 			return
 		case <-announcer.termSig:
+			Info.Printf("caught sig term, stopping announce loop")
 			return
 		default:
 			announcer.doAnnounce()

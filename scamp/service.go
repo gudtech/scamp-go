@@ -214,7 +214,8 @@ forLoop:
 //Handle handles incoming client messages received via the cient MessageChan
 func (serv *Service) Handle(client *Client) {
 	var action *ServiceAction
-	//Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
+	//addr := client.conn.conn.RemoteAddr()
+	//Info.Printf("handling client for remote connection: %s\n", addr)
 HandlerLoop:
 	for {
 		select {
@@ -248,6 +249,7 @@ HandlerLoop:
 
 	client.Close()
 	serv.RemoveClient(client)
+	//Info.Printf("finished handling client for remote connection: %s\n", addr)
 }
 
 // RemoveClient removes a client from the scamp service
@@ -276,24 +278,41 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 
 // Stop closes the service's net.Listener
 func (serv *Service) Stop() {
-	after := time.After(30 * time.Second)
+	timeoutPeriod := 30 * time.Second
+	after := time.After(timeoutPeriod)
+	ticker := time.NewTicker(1 * time.Second)
+
+	{
+		serv.clientsM.Lock()
+		clientsLength := len(serv.clients)
+		serv.clientsM.Unlock()
+		Info.Printf("service is stopping, waiting for %d clients", clientsLength)
+	}
 
 ServiceWait:
 	for {
-		select {
-		case <-after:
-			break ServiceWait
-		default:
-		}
-
 		serv.clientsM.Lock()
 		clientsLength := len(serv.clients)
 		serv.clientsM.Unlock()
 
 		if clientsLength == 0 {
 			break
+		} else {
+			select {
+			case <-ticker.C:
+				Info.Printf("waiting on %d clients before stopping", clientsLength)
+			default:
+			}
+		}
+
+		select {
+		case <-after:
+			Info.Printf("timed out (%s) waiting for clients", timeoutPeriod)
+			break ServiceWait
+		case <-time.After(50 * time.Millisecond):
 		}
 	}
+	Info.Printf("closing service")
 
 	if serv.listener != nil {
 		serv.listener.Close()

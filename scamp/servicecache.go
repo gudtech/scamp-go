@@ -323,3 +323,33 @@ func Do(fn Func) error {
 func IsMaxRetries(err error) bool {
 	return err == errMaxRetriesReached
 }
+
+// Block on all outgoing requests for a more graceful shutdown.
+func (cache *ServiceCache) Stop() {
+	// We can't lock the entire method because client.Stop() also locks DefaultCache,
+	// which would lead to a deadlock if this cache == DefaultCache.
+	cache.cacheM.Lock()
+	var proxies []*serviceProxy
+	for _, proxy := range cache.identIndex {
+		proxies = append(proxies, proxy)
+	}
+	cache.cacheM.Unlock()
+
+	var wait sync.WaitGroup
+	for _, proxy := range proxies {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+
+			proxy.clientM.Lock()
+			client := proxy.client
+			proxy.clientM.Unlock()
+
+			if client != nil {
+				client.Close()
+			}
+		}()
+	}
+
+	wait.Done()
+}

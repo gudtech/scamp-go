@@ -2,6 +2,7 @@ package scamp
 
 import (
 	"sync"
+	"time"
 )
 
 // type ClientChan chan *Client
@@ -96,7 +97,9 @@ func (client *Client) Close() {
 	if len(client.spIdent) > 0 {
 		sp := DefaultCache.Retrieve(client.spIdent)
 		if sp != nil {
+			sp.clientM.Lock()
 			sp.client = nil
+			sp.clientM.Unlock()
 		}
 	}
 
@@ -105,6 +108,26 @@ func (client *Client) Close() {
 	if client.isClosed {
 		// Trace.Printf("client already closed. skipping shutdown.")
 		return
+	}
+
+	timeoutPeriod := 30 * time.Second
+	after := time.After(timeoutPeriod)
+
+ClientClose:
+	for {
+		client.openRepliesLock.Lock()
+		openReplies := len(client.openReplies)
+		client.openRepliesLock.Unlock()
+
+		if openReplies == 0 {
+			break
+		}
+
+		select {
+		case <-after:
+			break ClientClose
+		case <-time.After(50 * time.Millisecond):
+		}
 	}
 
 	// Trace.Printf("closing client...")

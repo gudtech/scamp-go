@@ -4,8 +4,12 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 )
+
+var requestTimer time.Time = time.Now()
+var requestLock sync.Mutex
 
 // MakeJSONRequest retreives the appropriate service proxy based on the message action, and makes a
 // JSON request.
@@ -20,10 +24,18 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 
-	err = DefaultCache.Refresh()
-	if err != nil {
-		return
+	requestLock.Lock()
+	if time.Now().Sub(requestTimer) >= 0 {
+		err = DefaultCache.Refresh()
+		if err != nil {
+			requestLock.Unlock()
+			return
+		}
+
+		requestTimer = time.Now().Add(5 * time.Second)
 	}
+	requestLock.Unlock()
+
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
 

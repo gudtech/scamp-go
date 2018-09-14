@@ -2,9 +2,6 @@ package scamp
 
 import (
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/ipv4"
@@ -16,7 +13,6 @@ type DiscoveryAnnouncer struct {
 	multicastConn *ipv4.PacketConn
 	multicastDest *net.UDPAddr
 	stopSig       (chan bool)
-	termSig       (chan os.Signal)
 }
 
 // NewDiscoveryAnnouncer creates a DiscoveryAnnouncer
@@ -24,8 +20,6 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 	announcer = new(DiscoveryAnnouncer)
 	announcer.services = make([]*Service, 0, 0)
 	announcer.stopSig = make(chan bool)
-	announcer.termSig = make(chan os.Signal, 1)
-	signal.Notify(announcer.termSig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	config := DefaultConfig()
 	announcer.multicastDest = &net.UDPAddr{IP: config.DiscoveryMulticastIP(), Port: config.DiscoveryMulticastPort()}
@@ -42,7 +36,7 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 func (announcer *DiscoveryAnnouncer) Stop() {
 	select {
 	case announcer.stopSig <- true:
-	default:
+	case <-time.After(10 * time.Second): // Just in case `Stop()` was closed prior to announce somehow.
 	}
 }
 
@@ -60,9 +54,6 @@ func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
 	for {
 		select {
 		case <-announcer.stopSig:
-			return
-		case <-announcer.termSig:
-			Info.Printf("caught sig term, stopping announce loop")
 			return
 		default:
 			announcer.doAnnounce()

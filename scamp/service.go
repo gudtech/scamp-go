@@ -278,7 +278,10 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 
 // Stop closes the service's net.Listener
 func (serv *Service) Stop() {
-	timeoutPeriod := 30 * time.Second
+	serv.StopTimeout(30 * time.Second)
+}
+
+func (serv *Service) StopTimeout(timeoutPeriod time.Duration) {
 	after := time.After(timeoutPeriod)
 	ticker := time.NewTicker(1 * time.Second)
 

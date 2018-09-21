@@ -135,6 +135,17 @@ func (cache *ServiceCache) SearchByAction(sector, action string, version int, en
 	return
 }
 
+// SearchByMungedAction is used to search directly by the munged name as it is stored in the cache
+// e.g. "main:secproxy.http_post~1#json"
+func (cache *ServiceCache) SearchByMungedAction(name string) (instances []*ServiceProxy, err error) {
+	instances = cache.actionIndex[name]
+	if len(instances) == 0 {
+		err = fmt.Errorf("no instances found")
+		return
+	}
+	return
+}
+
 func (cache *ServiceCache) Size() int {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()

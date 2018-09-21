@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+
 	// "encoding/json"
 	"bytes"
 	"fmt"
@@ -58,6 +59,7 @@ type Service struct {
 	// stats
 	statsCloseChan      chan bool
 	connectionsAccepted uint64
+	dependencies        *soaDependencies
 }
 
 // NewService intializes and returns pointer to a new scamp service
@@ -108,6 +110,23 @@ func NewServiceExplicitCert(sector string, serviceSpec string, humanName string,
 
 	// Load cert in to memory for announce packet writing
 	serv.pemCert = bytes.TrimSpace(pemCert)
+
+	deps, err := readDeps(*depfilePath)
+	if err != nil {
+		return
+	}
+
+	if deps == nil {
+		err = fmt.Errorf("service dependencies cannot be nil")
+		return
+	}
+
+	serv.dependencies = deps
+
+	err = serv.CheckDependencies()
+	if err != nil {
+		return
+	}
 
 	// Finally, get ready for incoming requests
 	err = serv.listen()
@@ -167,11 +186,26 @@ func (serv *Service) Register(name string, callback ServiceActionFunc) (err erro
 
 //Run starts a scamp service
 func (serv *Service) Run() {
-	err := serv.createKubeLivenessFile()
+	// err := serv.CheckDependencies()
+	// if err != nil {
+	// 	//fmt.Println(err)
+	// 	log.Fatal(err)
+	// }
+
+	announcer, err := NewDiscoveryAnnouncer()
+	if err != nil {
+		Error.Printf("failed to create discovery announcer: %s", err)
+		return
+	}
+
+	announcer.Track(serv)
+	go announcer.AnnounceLoop()
+
+	err = serv.createKubeLivenessFile()
 	if err != nil {
 		fmt.Println(err)
 	}
-
+	serv.isRunning = true
 forLoop:
 	for {
 		netConn, err := serv.listener.Accept()
@@ -209,6 +243,7 @@ forLoop:
 	serv.clientsM.Unlock()
 
 	serv.statsCloseChan <- true
+	serv.isRunning = false
 }
 
 //Handle handles incoming client messages received via the cient MessageChan
@@ -285,6 +320,7 @@ func (serv *Service) Stop() {
 		fmt.Println("could not remove liveness file: ", err)
 	}
 	fmt.Println("shutdown done")
+	serv.isRunning = false
 }
 
 // MarshalText serializes a scamp service
@@ -388,4 +424,19 @@ func (serv *Service) removeKubeLivenessFile() error {
 		return err
 	}
 	return nil
+}
+
+// CheckDependencies checks that required SOA actions are available
+// before the service starts announcing and writes it's liveness file to
+// the host system
+func (serv *Service) CheckDependencies() (err error) {
+	DefaultCache.Refresh()
+
+	for _, requirement := range serv.dependencies.Requires {
+		err = checkRequirement(requirement)
+		if err != nil {
+			return
+		}
+	}
+	return
 }

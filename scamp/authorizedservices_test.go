@@ -5,14 +5,17 @@ import "bytes"
 import "bufio"
 
 func TestAuthorizedServiceSpec(t *testing.T) {
-	Initialize("/etc/SCAMP/soa.conf")
+	err := Initialize("./../../scamp-go/fixtures/sample_soa.conf")
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
 	cache := NewAuthorizedServicesCache()
 
 	reader := bytes.NewReader(testAuthorizedServices)
 
 	scanner := bufio.NewScanner(reader)
 
-	err := cache.LoadAuthorizedServices(scanner)
+	err = cache.LoadAuthorizedServices(scanner)
 	if err != nil {
 		t.Errorf("err loading auth'd services: `%s`", err)
 	}

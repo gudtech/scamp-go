@@ -25,7 +25,7 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 	//TODO: add retry logic in case service proxies are nil
-	var serviceProxies []*serviceProxy
+	var serviceProxies []*ServiceProxy
 
 	serviceProxies, err = DefaultCache.SearchByAction(sector, action, version, msgType)
 	if err != nil {

@@ -9,20 +9,22 @@ import (
 	"sync"
 )
 
+// ServiceCache represents a service discovery cache used to connect to other scamp services
 type ServiceCache struct {
 	path          string
 	cacheM        sync.Mutex
-	identIndex    map[string]*serviceProxy
-	actionIndex   map[string][]*serviceProxy
+	identIndex    map[string]*ServiceProxy
+	actionIndex   map[string][]*ServiceProxy
 	verifyRecords bool
 }
 
+// NewServiceCache creates a new Servicecache sstruct and populates it
 func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	cache = new(ServiceCache)
 	cache.path = path
 
-	cache.identIndex = make(map[string]*serviceProxy)
-	cache.actionIndex = make(map[string][]*serviceProxy)
+	cache.identIndex = make(map[string]*ServiceProxy)
+	cache.actionIndex = make(map[string][]*ServiceProxy)
 	cache.verifyRecords = true
 
 	//moving this here for now
@@ -34,15 +36,19 @@ func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	return
 }
 
+// DisableRecordVerification disables cache record validation
+// record validation can be an expensive operation in production
 func (cache *ServiceCache) DisableRecordVerification() {
 	cache.verifyRecords = true
 }
 
+// EnableRecordVerification enables cache record validation
 func (cache *ServiceCache) EnableRecordVerification() {
 	cache.verifyRecords = false
 }
 
-func (cache *ServiceCache) Store(instance *serviceProxy) {
+// Store inserts a ServiceProxy record into the discobery cache
+func (cache *ServiceCache) Store(instance *ServiceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -51,7 +57,7 @@ func (cache *ServiceCache) Store(instance *serviceProxy) {
 	return
 }
 
-func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
+func (cache *ServiceCache) storeNoLock(instance *ServiceProxy) {
 	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		cache.identIndex[instance.ident] = instance
@@ -71,7 +77,7 @@ func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
 				if ok {
 					serviceProxies = append(serviceProxies, instance)
 				} else {
-					serviceProxies = []*serviceProxy{instance}
+					serviceProxies = []*ServiceProxy{instance}
 				}
 
 				cache.actionIndex[mungedName] = serviceProxies
@@ -82,7 +88,7 @@ func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
 	return
 }
 
-func (cache *ServiceCache) removeNoLock(instance *serviceProxy) (err error) {
+func (cache *ServiceCache) removeNoLock(instance *ServiceProxy) (err error) {
 	_, ok := cache.identIndex[instance.ident]
 	if !ok {
 		err = fmt.Errorf("tried removing an ident which was not being tracked: %s", instance.ident)
@@ -97,13 +103,15 @@ func (cache *ServiceCache) removeNoLock(instance *serviceProxy) (err error) {
 // TODO: in a perfect world we'd do upserts to the cache
 // and sweep for stale proxy definitions.
 func (cache *ServiceCache) clearNoLock() (err error) {
-	cache.identIndex = make(map[string]*serviceProxy)
-	cache.actionIndex = make(map[string][]*serviceProxy)
+	cache.identIndex = make(map[string]*ServiceProxy)
+	cache.actionIndex = make(map[string][]*ServiceProxy)
 
 	return
 }
 
-func (cache *ServiceCache) Retrieve(ident string) (instance *serviceProxy) {
+// Retrieve returns a Serviceproxy record from the cache that can then be used to retreive or create
+// a client that can be used to connect to that service
+func (cache *ServiceCache) Retrieve(ident string) (instance *ServiceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
@@ -116,7 +124,8 @@ func (cache *ServiceCache) Retrieve(ident string) (instance *serviceProxy) {
 	return
 }
 
-func (cache *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
+// SearchByAction seraches the discovery cache for a specific action, by sector, version, envelope , and action name
+func (cache *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*ServiceProxy, err error) {
 	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
 	instances = cache.actionIndex[mungedName]
 	if len(instances) == 0 {
@@ -133,12 +142,12 @@ func (cache *ServiceCache) Size() int {
 	return len(cache.identIndex)
 }
 
-func (cache *ServiceCache) All() (proxies []*serviceProxy) {
+func (cache *ServiceCache) All() (proxies []*ServiceProxy) {
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
 	size := len(cache.identIndex)
-	proxies = make([]*serviceProxy, size)
+	proxies = make([]*ServiceProxy, size)
 
 	index := 0
 	for _, proxy := range cache.identIndex {

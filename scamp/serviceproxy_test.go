@@ -76,7 +76,7 @@ func TestServiceProxySerialize(t *testing.T) {
 	// [["bgdispatcher",["poll","",1],["reboot","",1],["report","",1]]]
 	// ,1440001142628
 	// ]
-	serviceProxy := serviceProxy{
+	serviceProxy := ServiceProxy{
 		version:          3,
 		ident:            "bgapi/proc01-HP4m32uuoVLTNXcLrKc3vd75",
 		sector:           "main",

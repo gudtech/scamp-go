@@ -5,11 +5,13 @@ import (
 	"time"
 )
 
+// ServiceStats collects simple service metrics, such as number of clients accepted and open connections
 type ServiceStats struct {
 	ClientsAccepted uint64 `json:"total_clients_accepted"`
 	OpenConnections uint64 `json:"open_connections"`
 }
 
+// GatherStats gathers ServiceStats
 func GatherStats(service *Service) (stats ServiceStats) {
 	stats.ClientsAccepted = service.connectionsAccepted
 	stats.OpenConnections = uint64(len(service.clients))
@@ -17,6 +19,7 @@ func GatherStats(service *Service) (stats ServiceStats) {
 	return
 }
 
+// PrintStatsLoop prints stats on an interval based on the provided timeout
 func PrintStatsLoop(service *Service, timeout time.Duration, closeChan chan bool) {
 forLoop:
 	for {

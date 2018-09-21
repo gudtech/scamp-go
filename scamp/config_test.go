@@ -1,8 +1,10 @@
 package scamp
 
-import "testing"
-import "bytes"
-import "bufio"
+import (
+	"bufio"
+	"bytes"
+	"testing"
+)
 
 var sampleConfigFile = []byte(`
 discovery.cache_path = /tmp/discovery.cache
@@ -22,12 +24,12 @@ func TestConfigHelpers(t *testing.T) {
 	conf.doLoad(scanner)
 
 	expected := []byte("/etc/SCAMP/services/helloworld.key")
-	if( !bytes.Equal(conf.ServiceKeyPath("helloworld"), expected) ) {
+	if !bytes.Equal(conf.ServiceKeyPath("helloworld"), expected) {
 		t.Fatalf("expected %s, got %s", expected, conf.ServiceKeyPath("helloworld"))
 	}
 
 	expected = []byte("/etc/SCAMP/services/helloworld.crt")
-	if( !bytes.Equal(conf.ServiceCertPath("helloworld"), expected) ) {
+	if !bytes.Equal(conf.ServiceCertPath("helloworld"), expected) {
 		t.Fatalf("expected %s, got %s", expected, conf.ServiceCertPath("helloworld"))
 	}
 }

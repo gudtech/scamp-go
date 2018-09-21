@@ -233,6 +233,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 	return
 }
 
+// RetryLimit is the maximum number of times the service can attempt to send a message before failing
 const RetryLimit = 50
 
 // Send sends a scamp message using the current *Connection

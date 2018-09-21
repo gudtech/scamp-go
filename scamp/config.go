@@ -145,6 +145,7 @@ func (conf *Config) DiscoveryMulticastPort() (port int) {
 	return
 }
 
+// LocalDiscoveryMulticast returns true if discovery.local_multicast is configured in the conf file
 func (conf *Config) LocalDiscoveryMulticast() bool {
 	_, ok := conf.values["discovery.local_multicast"]
 	return ok

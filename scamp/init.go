@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// DefaultCache is the default discovery cache for the service
 var DefaultCache *ServiceCache
 
 //Initialize performs package-level setup. This must be called before calling any other package functionality, as it sets up global configuration.

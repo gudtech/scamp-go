@@ -31,7 +31,8 @@ type ServiceProxyDiscoveryExtension struct {
 	AcNs   []interface{} `json:"acns"`
 }
 
-type serviceProxy struct {
+// ServiceProxy is a cache record that represents a remote scamp service that is announcing actions
+type ServiceProxy struct {
 	version          int
 	ident            string
 	sector           string
@@ -49,7 +50,8 @@ type serviceProxy struct {
 	client           *Client
 }
 
-func (sp *serviceProxy) GetClient() (client *Client, err error) {
+// GetClient retreives a client from s serviecproxy definition or creates it if it doesn't exist
+func (sp *ServiceProxy) GetClient() (client *Client, err error) {
 	sp.clientM.Lock()
 	defer sp.clientM.Unlock()
 
@@ -78,11 +80,12 @@ func (sp *serviceProxy) GetClient() (client *Client, err error) {
 	return
 }
 
-func (sp *serviceProxy) Ident() string {
+// Ident returns a ServiceProxy's ident string
+func (sp *ServiceProxy) Ident() string {
 	return sp.ident
 }
 
-func (sp *serviceProxy) baseIdent() string {
+func (sp *ServiceProxy) baseIdent() string {
 	baseAndRest := strings.SplitN(sp.ident, ":", 2)
 	if len(baseAndRest) != 2 {
 		return sp.ident
@@ -90,7 +93,7 @@ func (sp *serviceProxy) baseIdent() string {
 	return baseAndRest[0]
 }
 
-func (sp *serviceProxy) shortHostname() string {
+func (sp *ServiceProxy) shortHostname() string {
 	url, err := u.Parse(sp.connspec)
 	if err != nil {
 		log.Fatal(err)
@@ -112,15 +115,18 @@ func (sp *serviceProxy) shortHostname() string {
 	return names[0]
 }
 
-func (sp *serviceProxy) ConnSpec() string {
+// ConnSpec returns a ServiceProxy's connspec string
+func (sp *ServiceProxy) ConnSpec() string {
 	return sp.connspec
 }
 
-func (sp *serviceProxy) Sector() string {
+// Sector returns a ServiceProxy's sector
+func (sp *ServiceProxy) Sector() string {
 	return sp.sector
 }
 
-func (sp *serviceProxy) Classes() []serviceProxyClass {
+// Classes returns a Serviceproxy's classes
+func (sp *ServiceProxy) Classes() []serviceProxyClass {
 	return sp.classes
 }
 
@@ -151,8 +157,8 @@ func (ad actionDescription) Version() int {
 	return ad.version
 }
 
-func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
-	sp = new(serviceProxy)
+func serviceAsServiceProxy(serv *Service) (sp *ServiceProxy) {
+	sp = new(ServiceProxy)
 	sp.version = 3
 	sp.ident = serv.name
 	sp.sector = serv.sector
@@ -202,8 +208,8 @@ func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
 	return
 }
 
-func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp *serviceProxy, err error) {
-	sp = new(serviceProxy)
+func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp *ServiceProxy, err error) {
+	sp = new(ServiceProxy)
 	sp.rawClassRecords = classRecordsRaw
 	sp.rawCert = certRaw
 	sp.rawSig = sigRaw
@@ -350,7 +356,7 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 // 1) Verify signature of classRecords
 // 2) Make sure the fingerprint is in authorized_services
 // 3) Filter announced actions against authorized actions
-func (sp *serviceProxy) Validate() (err error) {
+func (sp *ServiceProxy) Validate() (err error) {
 	_, err = sp.validateSignature()
 	if err != nil {
 		return
@@ -362,7 +368,7 @@ func (sp *serviceProxy) Validate() (err error) {
 	return
 }
 
-func (sp *serviceProxy) validateSignature() (hexSha1 string, err error) {
+func (sp *ServiceProxy) validateSignature() (hexSha1 string, err error) {
 	decoded, _ := pem.Decode(sp.rawCert)
 	if decoded == nil {
 		err = fmt.Errorf("could not find valid cert in `%s`", sp.rawCert)
@@ -392,7 +398,7 @@ func (sp *serviceProxy) validateSignature() (hexSha1 string, err error) {
 	return
 }
 
-func (sp *serviceProxy) MarshalJSON() (b []byte, err error) {
+func (sp *ServiceProxy) MarshalJSON() (b []byte, err error) {
 	arr := make([]interface{}, 9)
 	arr[0] = &sp.version
 	arr[1] = &sp.ident
@@ -402,7 +408,7 @@ func (sp *serviceProxy) MarshalJSON() (b []byte, err error) {
 	arr[5] = &sp.connspec
 	arr[6] = &sp.protocols
 
-	// TODO: move this to two MarshalJSON interfaces for `ServiceProxyClass` and `ActionDescription`
+	// TODO: move this to two MarshalJSON interfaces for `serviceProxyClass` and `ActionDescription`
 	// doing so should remove manual copies and separate concerns
 	//
 	// Serialize actions in this format:

@@ -1,0 +1,15 @@
+{
+    "offers": [
+        {
+            "name": "main:action1~1"
+        }
+    ],
+    "requires": [
+        {
+            "action": "main:action1~1",
+            "deps": [
+                "main:Logger.info~1#json"
+            ]
+        }
+    ]
+}

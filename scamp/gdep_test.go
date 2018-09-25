@@ -37,6 +37,7 @@ func TestReadDeps(t *testing.T) {
 
 func TestCheckDependencies(t *testing.T) {
 	depPath := "./../../scamp-go/fixtures/gdep.json"
+	// overwrite the default "-gdep" flag path for the tests
 	depfilePath = &depPath
 	err := Initialize("./../../scamp-go/fixtures/sample_soa.conf")
 	if err != nil {

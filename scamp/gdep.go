@@ -56,7 +56,7 @@ func checkRequirement(action soaAction) error {
 		if err != nil {
 			return fmt.Errorf("dependency error: %s", err)
 		}
-		if serviceProxies == nil {
+		if serviceProxies == nil || len(serviceProxies) == 0 {
 			return fmt.Errorf("%s not found in discovery cache: %s", dep, err)
 		}
 	}

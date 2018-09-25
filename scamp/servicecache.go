@@ -126,6 +126,9 @@ func (cache *ServiceCache) Retrieve(ident string) (instance *ServiceProxy) {
 
 // SearchByAction seraches the discovery cache for a specific action, by sector, version, envelope , and action name
 func (cache *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*ServiceProxy, err error) {
+	cache.cacheM.Lock()
+	defer cache.cacheM.Unlock()
+
 	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
 	instances = cache.actionIndex[mungedName]
 	if len(instances) == 0 {
@@ -138,6 +141,9 @@ func (cache *ServiceCache) SearchByAction(sector, action string, version int, en
 // SearchByMungedAction is used to search directly by the munged name as it is stored in the cache
 // e.g. "main:secproxy.http_post~1#json"
 func (cache *ServiceCache) SearchByMungedAction(name string) (instances []*ServiceProxy, err error) {
+	cache.cacheM.Lock()
+	defer cache.cacheM.Unlock()
+
 	instances = cache.actionIndex[name]
 	if len(instances) == 0 {
 		err = fmt.Errorf("no instances found")

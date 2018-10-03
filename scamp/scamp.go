@@ -16,7 +16,7 @@ import (
 	"strconv"
 )
 
-var defaultCloseTimeout = 30
+var defaultCloseTimeout int64 = 30
 
 func main() {
 	var keyPath string
@@ -53,7 +53,7 @@ func main() {
 		if err != nil {
 			fmt.Printf("Could not parse closeTimout flag, using defaultTimeout (30 seconds)")
 		} else {
-			defaultCloseTimeout = seconds
+			defaultCloseTimeout = int64(seconds)
 		}
 	}
 }

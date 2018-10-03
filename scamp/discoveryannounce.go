@@ -1,6 +1,7 @@
 package scamp
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -40,9 +41,15 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 
 // Stop notifies stopSig channel to stop announcer
 func (announcer *DiscoveryAnnouncer) Stop() {
-	select {
-	case announcer.stopSig <- true:
-	case <-time.After(10 * time.Second): // Just in case `Stop()` was closed prior to announce somehow.
+	for {
+		select {
+		case announcer.stopSig <- true:
+			fmt.Println("sent announcer stop signal")
+			return
+		case <-time.After(5 * time.Second):
+			fmt.Println("announcer Stop() timed out")
+			return
+		}
 	}
 }
 
@@ -55,11 +62,10 @@ func (announcer *DiscoveryAnnouncer) Track(serv *Service) {
 // interval configured in defaultAnnounceInterval
 // TODO: make defaultAnnounceInterval configurable in the service (rather than hardcoded in scamp)
 func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
-	// Trace.Printf("starting announcer loop")
-
 	for {
 		select {
 		case <-announcer.stopSig:
+			Info.Printf("'announcer.Stop()' called, stopping announce loop")
 			return
 		case <-announcer.termSig:
 			Info.Printf("caught sig term, stopping announce loop")

@@ -94,9 +94,11 @@ func (client *Client) Send(msg *Message) (responseChan chan *Message, err error)
 
 // Close unlocks a client mutex and closes the connection
 func (client *Client) Close() {
-	client.CloseTimeout(30 * time.Second)
+	client.CloseTimeout(time.Second * time.Duration(defaultCloseTimeout))
 }
 
+// CloseTimeout takes defaultCloseTimeout which defaults to 30 seconds but can be
+// set via the "timeout" flag
 func (client *Client) CloseTimeout(timeoutPeriod time.Duration) {
 	if len(client.spIdent) > 0 {
 		sp := DefaultCache.Retrieve(client.spIdent)

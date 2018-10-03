@@ -13,13 +13,17 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 )
+
+var defaultCloseTimeout = 30
 
 func main() {
 	var keyPath string
 	var certPath string
 	var fingerprintPath string
 	var announcePath string
+	var closeTimout string
 
 	gtConfigPathPtr := flag.String("config", "/backplane/discovery/discovery", "path to the discovery file")
 
@@ -27,6 +31,7 @@ func main() {
 	flag.StringVar(&certPath, "certpath", "", "path to cert used for signing")
 	flag.StringVar(&keyPath, "keypath", "", "path to service private key")
 	flag.StringVar(&fingerprintPath, "fingerprintpath", "", "path to cert to fingerprint")
+	flag.StringVar(&closeTimout, "timeout", "", "amount of time (in seconds) to wait before shutting down. Default is 30s")
 	flag.Parse()
 
 	Initialize(*gtConfigPathPtr)
@@ -43,6 +48,14 @@ func main() {
 		doCertFingerprint(fingerprintPath)
 	}
 
+	if len(closeTimout) != 0 {
+		seconds, err := strconv.Atoi(closeTimout)
+		if err != nil {
+			fmt.Printf("Could not parse closeTimout flag, using defaultTimeout (30 seconds)")
+		} else {
+			defaultCloseTimeout = seconds
+		}
+	}
 }
 
 func doFakeDiscoveryCache(keyPath, certPath, announcePath string) {

@@ -5,7 +5,7 @@ import "bytes"
 import "bufio"
 
 func TestAuthorizedServiceSpec(t *testing.T) {
-	Initialize("/etc/SCAMP/soa.conf")
+	Initialize("./../fixtures/sample_soa.conf")
 	cache := NewAuthorizedServicesCache()
 
 	reader := bytes.NewReader(testAuthorizedServices)

@@ -123,7 +123,7 @@ func (cache *ServiceCache) SearchByAction(sector, action string, version int, en
 	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
 	instances = cache.actionIndex[mungedName]
 	if len(instances) == 0 {
-		err = fmt.Errorf("no instances found")
+		err = fmt.Errorf("no instances found of %s", mungedName)
 		return
 	}
 	return

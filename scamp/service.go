@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+
 	// "encoding/json"
 	"bytes"
 	"fmt"
@@ -278,9 +279,11 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 
 // Stop closes the service's net.Listener
 func (serv *Service) Stop() {
-	serv.StopTimeout(30 * time.Second)
+	serv.StopTimeout(time.Second * time.Duration(defaultCloseTimeout))
 }
 
+// StopTimeout takes defaultCloseTimeout which defaults to 30 seconds but can be
+// set via the "timeout" flag
 func (serv *Service) StopTimeout(timeoutPeriod time.Duration) {
 	after := time.After(timeoutPeriod)
 	ticker := time.NewTicker(1 * time.Second)

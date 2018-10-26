@@ -3,6 +3,7 @@ package scamp
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"regexp"
@@ -21,66 +22,78 @@ var defaultConfig *Config
 var defaultAnnounceInterval = 5
 
 // DefaultConfigPath is the path at which the library will, by default, look for its configuration.
-var DefaultConfigPath = "/etc/SCAMP/soa.conf"
+// var DefaultConfigPath = "/etc/SCAMP/soa.conf"
 
-var configLine = regexp.MustCompile(`^\s*([\S^=]+)\s*=\s*([\S]+)`)
 var globalConfig *Config
 
 var defaultGroupIP = net.IPv4(239, 63, 248, 106)
 var defaultGroupPort = 5555
 
+// initConfig initializes the default scamp config struct and returns an
+// error if it is unable to do so.
 func initConfig(configPath string) (err error) {
-	defaultConfig = NewConfig()
-	err = DefaultConfig().Load(configPath)
+	if len(configPath) == 0 {
+		configPath = defaultConfigPath
+	}
+
+	defaultConfig = &Config{
+		values: make(map[string][]byte),
+	}
+	err = defaultConfig.Load(configPath)
 	if err != nil {
 		err = fmt.Errorf("could not load config: %s", err)
 		return
 	}
-
+	// TODO: review and possibly remove scamp debugger
 	randomDebuggerString = scampDebuggerRandomString()
-
 	return
 }
 
 // NewConfig creates a new configuration struct with default values initialized.
-func NewConfig() (conf *Config) {
-	conf = new(Config)
-	conf.values = make(map[string][]byte)
-
-	return
-}
+// func NewConfig() (conf *Config) {
+// 	conf = &Config{
+// 		values: make(map[string][]byte),
+// 	}
+// 	return
+// }
 
 // SetDefaultConfig sets the global configuration manually if need be.
 // In general, users should use Initialize instead.
-func SetDefaultConfig(conf *Config) {
-	initSCAMPLogger()
-	defaultConfig = conf
-}
+// func SetDefaultConfig(conf *Config) {
+// 	initSCAMPLogger()
+// 	defaultConfig = conf
+// }
 
 // DefaultConfig fetches the global configuration struct for use.
-// This function panics if the global configuration is not initialized (with `Initialize()`).
+// This function panics if the global configuration is not initialized
+// (with `Initialize()`).
 func DefaultConfig() (conf *Config) {
 	if defaultConfig == nil {
-		panic("Global configuration defaultConfig is not initialized! Call scamp.Initialize() before using package functionality.")
+		log.Fatal("default Config{} is not initialized!")
 	}
 	return defaultConfig
 }
 
 // Load loads configuration k/v pairs from the file at the given path.
-func (conf *Config) Load(configPath string) (err error) {
+func (conf *Config) Load(configPath string) error {
 	file, err := os.Open(configPath)
 	if err != nil {
-		err = fmt.Errorf("couldn't read config from `%s`: %v", configPath, err)
-		return
+		return fmt.Errorf("could not open config file at `%s`: %s", configPath, err)
 	}
-	scanner := bufio.NewScanner(file)
-	conf.doLoad(scanner)
+	defer file.Close()
 
-	return
+	scanner := bufio.NewScanner(file)
+	err = conf.doLoad(scanner)
+	if err != nil {
+		return fmt.Errorf("couldn't load config info from file: %s", err)
+	}
+
+	return nil
 }
 
 func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
 	var read bool
+	var configLine = regexp.MustCompile(`^\s*([\S^=]+)\s*=\s*([\S]+)`)
 	for {
 		read = scanner.Scan()
 		if !read {
@@ -92,7 +105,6 @@ func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
 			conf.values[string(re[1])] = re[2]
 		}
 	}
-
 	return
 }
 
@@ -100,6 +112,7 @@ func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
 func (conf *Config) ServiceKeyPath(serviceName string) (keyPath []byte) {
 	path := conf.values[serviceName+".soa_key"]
 	if path == nil {
+		//TODO: use default paths (and double check with Justin that they are correct)
 		path = []byte(fmt.Sprintf("/etc/GT_private/services/%s.key", serviceName))
 	}
 	return path

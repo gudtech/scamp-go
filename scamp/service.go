@@ -17,6 +17,17 @@ import (
 	"time"
 )
 
+func init() {
+	initSCAMPLogger()
+
+	// DefaultCache, err := NewServiceCache(cachePath)
+	// if err != nil {
+	// 	return
+	// }
+
+	return
+}
+
 const (
 	defaultMessageTimeout  = time.Second * 120
 	defaultLivenessDirPath = "/backplane/running-services/"
@@ -130,19 +141,31 @@ func (o *Options) merge() {
 
 // NewService initializes and returns pointer to a new scamp service
 func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
-	// TODO: move this into appropriate ServiceOption func
 	if len(desc.HumanName) > 18 {
 		return nil, fmt.Errorf("name `%s` is too long, it must be less than 18 bytes", desc.HumanName)
 	}
 	opts.merge()
-	// TODO: consider adding an alternate certpath/keypath in options
-	crtPath := DefaultConfig().ServiceCertPath(desc.HumanName)
-	keyPath := DefaultConfig().ServiceKeyPath(desc.HumanName)
 
 	err := initConfig(opts.SOAConfigPath)
 	if err != nil {
 		log.Fatal("could not initialize scamp environment: ", err)
 	}
+
+	cachePath, ok := DefaultConfig().Get("discovery.cache_path")
+	if !ok {
+		log.Fatal("no such config param `discovery.cache_path`: this key must be present in soa.conf to use scamp-go")
+	}
+
+	cache, err := NewServiceCache(cachePath)
+	if err != nil {
+		log.Fatalf("couldn't create service cache: %s", err)
+	}
+	DefaultCache = cache
+
+	// TODO: consider using an alternate certpath/keypath in options
+	// override ServiceCertPath/ServiceKeyPath to use opts
+	crtPath := DefaultConfig().ServiceCertPath(desc.HumanName)
+	keyPath := DefaultConfig().ServiceKeyPath(desc.HumanName)
 
 	// Load keypair for tls socket library to use
 	keypair, err := tls.LoadX509KeyPair(string(crtPath), string(keyPath))
@@ -416,7 +439,7 @@ func (serv *Service) generateRandomName() {
 	read, err := rand.Read(randBytes)
 	if err != nil {
 		// we can't announce a scamp service without a unique name so bail out
-		log.Fatal("could not generate all rand bytes needed. only read %d of 18", read)
+		log.Fatalf("could not generate all rand bytes needed. only read %d of 18", read)
 	}
 
 	base64RandBytes := base64.StdEncoding.EncodeToString(randBytes)

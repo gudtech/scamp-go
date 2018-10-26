@@ -7,102 +7,163 @@
 package scamp
 
 import (
-	"bytes"
-	"crypto/x509"
-	"encoding/pem"
-	"flag"
 	"fmt"
-	"io/ioutil"
+	"log"
 )
 
-func main() {
-	var keyPath string
-	var certPath string
-	var fingerprintPath string
-	var announcePath string
+// const (
+// 	defaultMessageTimeout  = time.Second * 120
+// 	defaultLivenessDirPath = "/backplane/running-services/"
+// 	defaultConfigPath      = "/backplane/etc"
+// )
 
-	gtConfigPathPtr := flag.String("config", "/backplane/discovery/discovery", "path to the discovery file")
+// // DefaultCache is the default service cache
+// var DefaultCache *ServiceCache
 
-	flag.StringVar(&announcePath, "announcepath", "", "payload to be signed")
-	flag.StringVar(&certPath, "certpath", "", "path to cert used for signing")
-	flag.StringVar(&keyPath, "keypath", "", "path to service private key")
-	flag.StringVar(&fingerprintPath, "fingerprintpath", "", "path to cert to fingerprint")
-	flag.Parse()
+// // Options that can be passed at time of service creation
+// // TODO: after doing so, define defaultServiceOptions (in Init()) to set these values when
+// // a user doesn't
+// type Options struct {
+// 	// KeyPath path to service private key
+// 	KeyPath string
+// 	// CertPath path to certificate used for signing
+// 	CertPath string
+// 	// AnnouncePath payload to be signed
+// 	AnnouncePath string
+// 	// SOAConfigPath path to the soa.conf file
+// 	// the soa.conf file must include the following keys:
+// 	//	1) discovery.cache_path
+// 	SOAConfigPath string
+// 	// LivenessFilePath in Kubernetes environments, scamp services write an empty file to a
+// 	// designated directory to facilitate auto-scaling
+// 	LivenessFilePath string
+// }
 
-	Initialize(*gtConfigPathPtr)
+// var defaultServiceOptions = Options{
+// 	KeyPath:          "",
+// 	CertPath:         "",
+// 	AnnouncePath:     "",
+// 	SOAConfigPath:    defaultConfigPath,
+// 	LivenessFilePath: defaultLivenessDirPath,
+// }
 
-	if (len(keyPath) == 0 || len(announcePath) == 0 || len(certPath) == 0) && (len(fingerprintPath) == 0) {
-		fmt.Printf("fingerprintpath: %s\n", fingerprintPath)
-		fmt.Println("not enough options specified, must provide: tcertpath, keypath, and announcepath, OR fingerprintpath")
+// setup scamp environment using either passed Options struct or defaultServiceOptions
+// TODO: use passed options. These must supercede default options
+func init() {
+	initSCAMPLogger()
+	err := initConfig(defaultServiceOptions.SOAConfigPath)
+	if err != nil {
+		log.Fatalf("could not initialize scamp environment %s\n", err)
+	}
+
+	cachePath, ok := DefaultConfig().Get("discovery.cache_path")
+	if !ok {
+		err = fmt.Errorf("no such config param `discovery.cache_path`: this key must be present in soa.conf to use scamp-go")
 		return
 	}
 
-	if len(keyPath) != 0 {
-		doFakeDiscoveryCache(keyPath, certPath, announcePath)
-	} else {
-		doCertFingerprint(fingerprintPath)
-	}
-
-}
-
-func doFakeDiscoveryCache(keyPath, certPath, announcePath string) {
-	keyRawBytes, err := ioutil.ReadFile(keyPath)
+	DefaultCache, err = NewServiceCache(cachePath)
 	if err != nil {
-		Error.Fatalf("could not read key at %s", keyPath)
-	}
-
-	block, _ := pem.Decode(keyRawBytes)
-
-	if block == nil {
-		Error.Fatalf("could not decode key data (%s)", block.Type)
 		return
-	} else if block.Type != "RSA PRIVATE KEY" {
-		Error.Fatalf("expected key type 'RSA PRIVATE KEY' but got '%s'", block.Type)
 	}
 
-	privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		Error.Fatalf("could not parse key from %s (%s)", keyPath, block.Type)
-	}
-
-	announceData, err := ioutil.ReadFile(announcePath)
-	if err != nil {
-		Error.Fatalf("could not read announce data from %s", announcePath)
-	}
-	announceSig, err := signSHA256([]byte(announceData), privKey)
-	if err != nil {
-		Error.Fatalf("could not sign announce data: %s", err)
-	}
-
-	certData, err := ioutil.ReadFile(certPath)
-	if err != nil {
-		Error.Fatalf("could not read cert from %s", certPath)
-	}
-
-	fmt.Printf("\n%%%%%%\n%s\n\n%s\n\n%s\n", announceData, bytes.TrimSpace(certData), announceSig)
+	return
 }
 
-func doCertFingerprint(fingerprintPath string) {
-	certData, err := ioutil.ReadFile(fingerprintPath)
-	if err != nil {
-		Error.Fatalf("could not read cert from %s", fingerprintPath)
-	}
+// TODO: scamp shouldnt have a main function (this is a library) and we shouldn't be using
+// flags here. We can substitute an options or config struct with sensible defaults
+// func main() {
+// var keyPath string
+// var certPath string
+// var fingerprintPath string
+// var announcePath string
 
-	decoded, _ := pem.Decode(certData)
-	if decoded == nil {
-		Error.Fatalf("could not decode cert. is it PEM encoded?")
-	}
+// gtConfigPathPtr := flag.String("config", defaultConfigPath, "path to soa.conf")
 
-	// Put pem in form useful for fingerprinting
-	cert, err := x509.ParseCertificate(decoded.Bytes)
-	if err != nil {
-		Error.Fatalf("could not parse certificate. is it valid x509?")
-	}
+// flag.StringVar(&announcePath, "announcepath", "", "payload to be signed")
+// flag.StringVar(&certPath, "certpath", "", "path to cert used for signing")
+// flag.StringVar(&keyPath, "keypath", "", "path to service private key")
 
-	fingerprint := GetSHA1FingerPrint(cert)
-	if len(fingerprint) > 0 {
-		fmt.Printf("fingerprint: %s\n", fingerprint)
-	} else {
-		Error.Fatalf("could not fingerprint certificate")
-	}
-}
+// TODO: Fingerprinting should be done in a separate, executable utility we provide with the scamp library
+// flag.StringVar(&fingerprintPath, "fingerprintpath", "", "path to cert to fingerprint")
+// flag.Parse()
+
+// TODO: move initialize to package init()
+// Initialize(*gtConfigPathPtr)
+
+// TODO: Move this logic to Init()
+// if (len(keyPath) == 0 || len(announcePath) == 0 || len(certPath) == 0) && (len(fingerprintPath) == 0) {
+// 	fmt.Printf("fingerprintpath: %s\n", fingerprintPath)
+// 	fmt.Println("not enough options specified, must provide: certpath, keypath, and announcepath, OR fingerprintpath")
+// 	return
+// }
+
+// if len(keyPath) != 0 {
+// 	doFakeDiscoveryCache(keyPath, certPath, announcePath)
+// } else {
+// 	doCertFingerprint(fingerprintPath)
+// }
+
+// }
+
+// func doFakeDiscoveryCache(keyPath, certPath, announcePath string) {
+// 	keyRawBytes, err := ioutil.ReadFile(keyPath)
+// 	if err != nil {
+// 		Error.Fatalf("could not read key at %s", keyPath)
+// 	}
+
+// 	block, _ := pem.Decode(keyRawBytes)
+
+// 	if block == nil {
+// 		Error.Fatalf("could not decode key data (%s)", block.Type)
+// 		return
+// 	} else if block.Type != "RSA PRIVATE KEY" {
+// 		Error.Fatalf("expected key type 'RSA PRIVATE KEY' but got '%s'", block.Type)
+// 	}
+
+// 	privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+// 	if err != nil {
+// 		Error.Fatalf("could not parse key from %s (%s)", keyPath, block.Type)
+// 	}
+
+// 	announceData, err := ioutil.ReadFile(announcePath)
+// 	if err != nil {
+// 		Error.Fatalf("could not read announce data from %s", announcePath)
+// 	}
+// 	announceSig, err := signSHA256([]byte(announceData), privKey)
+// 	if err != nil {
+// 		Error.Fatalf("could not sign announce data: %s", err)
+// 	}
+
+// 	certData, err := ioutil.ReadFile(certPath)
+// 	if err != nil {
+// 		Error.Fatalf("could not read cert from %s", certPath)
+// 	}
+
+// 	fmt.Printf("\n%%%%%%\n%s\n\n%s\n\n%s\n", announceData, bytes.TrimSpace(certData), announceSig)
+// }
+
+// func doCertFingerprint(fingerprintPath string) {
+// 	certData, err := ioutil.ReadFile(fingerprintPath)
+// 	if err != nil {
+// 		Error.Fatalf("could not read cert from %s", fingerprintPath)
+// 	}
+
+// 	decoded, _ := pem.Decode(certData)
+// 	if decoded == nil {
+// 		Error.Fatalf("could not decode cert. is it PEM encoded?")
+// 	}
+
+// 	// Put pem in form useful for fingerprinting
+// 	cert, err := x509.ParseCertificate(decoded.Bytes)
+// 	if err != nil {
+// 		Error.Fatalf("could not parse certificate. is it valid x509?")
+// 	}
+
+// 	fingerprint := GetSHA1FingerPrint(cert)
+// 	if len(fingerprint) > 0 {
+// 		fmt.Printf("fingerprint: %s\n", fingerprint)
+// 	} else {
+// 		Error.Fatalf("could not fingerprint certificate")
+// 	}
+// }

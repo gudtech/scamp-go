@@ -9,6 +9,7 @@ import (
 	"sync"
 )
 
+// ServiceCache represents data read from the scamp discovery cache
 type ServiceCache struct {
 	path          string
 	cacheM        sync.Mutex
@@ -17,6 +18,7 @@ type ServiceCache struct {
 	verifyRecords bool
 }
 
+// NewServiceCache creates a new *ServiceCache and initializes its fields
 func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	cache = new(ServiceCache)
 	cache.path = path
@@ -34,11 +36,11 @@ func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	return
 }
 
-func (cache *ServiceCache) DisableRecordVerification() {
+func (cache *ServiceCache) disableRecordVerification() {
 	cache.verifyRecords = true
 }
 
-func (cache *ServiceCache) EnableRecordVerification() {
+func (cache *ServiceCache) enableRecordVerification() {
 	cache.verifyRecords = false
 }
 

@@ -43,7 +43,7 @@ type ServiceActionFunc func(*Message, *Client)
 
 // ServiceAction interface
 type ServiceAction struct {
-	callback ServiceActionFunc
+	handler  ServiceActionFunc
 	crudTags string
 	version  int
 }
@@ -240,15 +240,15 @@ func (serv *Service) listen() (err error) {
 }
 
 // Register registers a service handler callback
-func (serv *Service) Register(name string, callback ServiceActionFunc) (err error) {
+func (serv *Service) Register(name string, handler ServiceActionFunc) (err error) {
 	if serv.isRunning {
 		err = errors.New("cannot register handlers while server is running")
 		return
 	}
 
 	serv.actions[name] = &ServiceAction{
-		callback: callback,
-		version:  1,
+		handler: handler,
+		version: 1,
 	}
 	return
 }
@@ -314,7 +314,7 @@ HandlerLoop:
 
 			if action != nil {
 				// Info.Printf("handling action %s\n", action.crudTags)
-				action.callback(msg, client)
+				action.handler(msg, client)
 			} else {
 				Error.Printf("do not know how to handle action `%s`", msg.Action)
 
@@ -363,6 +363,7 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 }
 
 // Stop closes the service's net.Listener
+// TODO: refactor
 func (serv *Service) Stop() {
 	if serv.listener != nil {
 		serv.listener.Close()
@@ -375,7 +376,7 @@ func (serv *Service) Stop() {
 	fmt.Println("shutdown done")
 }
 
-// MarshalText serializes a scamp service
+// MarshalText serializes a scamp service for discovery broadcast
 func (serv *Service) MarshalText() (b []byte, err error) {
 	var buf bytes.Buffer
 
@@ -395,8 +396,6 @@ func (serv *Service) MarshalText() (b []byte, err error) {
 	buf.WriteString("\n\n")
 	buf.Write(serv.pemCert)
 	buf.WriteString("\n\n")
-	// buf.WriteString(sig)
-	// buf.WriteString("\n\n")
 	for _, part := range sigParts {
 		buf.WriteString(part)
 		buf.WriteString("\n")

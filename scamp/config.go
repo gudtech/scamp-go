@@ -50,12 +50,12 @@ func initConfig(configPath string) (err error) {
 }
 
 // NewConfig creates a new configuration struct with default values initialized.
-// func NewConfig() (conf *Config) {
-// 	conf = &Config{
-// 		values: make(map[string][]byte),
-// 	}
-// 	return
-// }
+func NewConfig() (conf *Config) {
+	conf = &Config{
+		values: make(map[string][]byte),
+	}
+	return
+}
 
 // SetDefaultConfig sets the global configuration manually if need be.
 // In general, users should use Initialize instead.

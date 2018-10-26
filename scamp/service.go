@@ -141,12 +141,13 @@ func (o *Options) merge() {
 
 // NewService initializes and returns pointer to a new scamp service
 func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
-	if len(desc.HumanName) > 18 {
-		return nil, fmt.Errorf("name `%s` is too long, it must be less than 18 bytes", desc.HumanName)
+	err := validateServiceDesc(desc)
+	if err != nil {
+		log.Fatalf("couldn't create service: %s", err)
 	}
 	opts.merge()
 
-	err := initConfig(opts.SOAConfigPath)
+	err = initConfig(opts.SOAConfigPath)
 	if err != nil {
 		log.Fatal("could not initialize scamp environment: ", err)
 	}
@@ -202,15 +203,6 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 
 	service.statsCloseChan = make(chan bool)
 	return service, nil
-}
-
-// loadPEMCertBytes loads certificate file as bytes
-func loadPEMCertBytes(filePath string) []byte {
-	pemCert, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Fatal("could not load certificate file")
-	}
-	return bytes.TrimSpace(pemCert)
 }
 
 // TODO: port discovery and interface/IP discovery should happen here
@@ -476,4 +468,31 @@ func (serv *Service) removeKubeLivenessFile() error {
 		return err
 	}
 	return nil
+}
+
+// validateServiceDesc checks that all ServiceDesc fields are provided
+// and returns an error if any are blank
+func validateServiceDesc(desc ServiceDesc) error {
+	if len(desc.HumanName) > 18 {
+		return fmt.Errorf("desc.HumanName must be less than 18 bytes")
+	}
+	if len(desc.HumanName) == 0 {
+		return fmt.Errorf("desc.HumanName cannot be empty")
+	}
+	if len(desc.Sector) == 0 {
+		return fmt.Errorf("desc.Sector cannot be empty")
+	}
+	if len(desc.ServiceSpec) == 0 {
+		return fmt.Errorf("desc.ServiceSpec cannot be empty")
+	}
+	return nil
+}
+
+// loadPEMCertBytes loads certificate file as bytes
+func loadPEMCertBytes(filePath string) []byte {
+	pemCert, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Fatal("could not load certificate file")
+	}
+	return bytes.TrimSpace(pemCert)
 }

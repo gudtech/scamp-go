@@ -5,17 +5,13 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"log"
-
-	"strconv"
-
 	"fmt"
-	"strings"
-
-	"sync"
-
+	"log"
 	"net"
 	u "net/url"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 // ServiceProxyDiscoveryExtension Example:
@@ -151,14 +147,14 @@ func (ad actionDescription) Version() int {
 	return ad.version
 }
 
-func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
+func serviceAsServiceProxy(s *Service) (sp *serviceProxy) {
 	sp = new(serviceProxy)
 	sp.version = 3
-	sp.ident = serv.name
-	sp.sector = serv.sector
+	sp.ident = s.desc.name
+	sp.sector = s.desc.Sector
 	sp.weight = 1
 	sp.announceInterval = defaultAnnounceInterval * 500
-	sp.connspec = fmt.Sprintf("beepish+tls://%s:%d", serv.listenerIP.To4().String(), serv.listenerPort)
+	sp.connspec = fmt.Sprintf("beepish+tls://%s:%d", s.listenerIP.To4().String(), s.listenerPort)
 	sp.protocols = make([]string, 1, 1)
 	sp.protocols[0] = "json"
 	sp.classes = make([]serviceProxyClass, 0)
@@ -167,7 +163,7 @@ func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
 	sp.rawSig = []byte("rawSig")
 
 	// { "Logger.info": [{ "name": "blah", "callback": foo() }] }
-	for classAndActionName, serviceAction := range serv.actions {
+	for classAndActionName, serviceAction := range s.actions {
 		actionDotIndex := strings.LastIndex(classAndActionName, ".")
 		// TODO: this is the only spot that could fail? shouldn't happen in any usage...
 		if actionDotIndex == -1 {

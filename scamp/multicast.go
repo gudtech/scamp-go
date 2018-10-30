@@ -25,9 +25,9 @@ func localMulticastPacketConn(config *Config) (conn *ipv4.PacketConn, err error)
 	// going to the let the OS pick the port. `127.0.0.1:5556` used to work! -XRL
 	localMulticastSpec := "127.0.0.1:"
 
-	if config.LocalDiscoveryMulticast() {
-		addr := config.DiscoveryMulticastIP()
-		port := config.DiscoveryMulticastPort()
+	if config.localDiscoveryMulticast() {
+		addr := config.discoveryMulticastIP()
+		port := config.discoveryMulticastPort()
 		localMulticastSpec = fmt.Sprintf("%s:%d", addr, port)
 	}
 

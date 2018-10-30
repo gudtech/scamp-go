@@ -9,7 +9,7 @@ import (
 // Client represents a scamp client
 type Client struct {
 	conn            *Connection
-	serv            *Service
+	service         *Service
 	requests        chan *Message
 	openReplies     map[int]chan *Message
 	openRepliesLock sync.Mutex
@@ -23,44 +23,34 @@ type Client struct {
 // Dial calls DialConnection to establish a secure (tls) connection,
 // and uses that connection to create a client
 func Dial(connspec string) (client *Client, err error) {
-	// Trace.Printf("Connecting to: `%s`", connspec)
-
 	conn, err := DialConnection(connspec)
 	if err != nil {
 		return
 	}
-	client = NewClient(conn, "service-proxy")
-
+	client = NewClient(conn)
 	return
 }
 
 // NewClient takes a scamp connection and creates a new scamp client
-func NewClient(conn *Connection, clientType string) (client *Client) {
-	// Trace.Printf("client allocated")
-
-	client = new(Client)
-	client.conn = conn
-	client.requests = make(chan *Message)
-	client.openReplies = make(map[int]chan *Message)
-	// clientID++
-	// client.ID = clientID
-	// if len(clientType) > 0 {
-	// 	Warning.Printf("client %v created for %s\n", client.ID, clientType)
-	// } else {
-	// 	Warning.Printf("client %v created\n", client.ID)
-	// }
+func NewClient(conn *Connection) (client *Client) {
+	client = &Client{
+		conn:        conn,
+		requests:    make(chan *Message), //TODO: investigate using buffered channel here
+		openReplies: make(map[int]chan *Message),
+	}
+	// client.conn = conn
+	// client.requests = make(chan *Message)
+	// client.openReplies = make(map[int]chan *Message)
 	conn.SetClient(client)
 
-	// grNum++
-	// go client.splitReqsAndReps(grNum, clientID)
 	go client.splitReqsAndReps()
 
 	return
 }
 
 // SetService assigns a *Service to client.serv
-func (client *Client) SetService(serv *Service) {
-	client.serv = serv
+func (client *Client) SetService(s *Service) {
+	client.service = s
 }
 
 // Send TODO: would be nice to have different code path for scamp responses
@@ -102,22 +92,17 @@ func (client *Client) Close() {
 
 	client.closedM.Lock()
 	defer client.closedM.Unlock()
+
 	if client.isClosed {
-		// Trace.Printf("client already closed. skipping shutdown.")
 		return
 	}
-
-	// Trace.Printf("closing client...")
-	// Trace.Printf("closing client conn...")
 	client.closeConnection(client.conn)
 
 	// Notify wrapper service that we're dead
-	if client.serv != nil {
-		// Trace.Printf("removing client from service...")
-		client.serv.RemoveClient(client)
+	if client.service != nil {
+		client.service.RemoveClient(client)
 	}
 
-	// Trace.Printf("marking client as closed...")
 	client.isClosed = true
 }
 

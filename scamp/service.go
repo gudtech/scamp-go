@@ -19,12 +19,6 @@ import (
 
 func init() {
 	initSCAMPLogger()
-
-	// DefaultCache, err := NewServiceCache(cachePath)
-	// if err != nil {
-	// 	return
-	// }
-
 	return
 }
 
@@ -32,6 +26,7 @@ const (
 	defaultMessageTimeout  = time.Second * 120
 	defaultLivenessDirPath = "/backplane/running-services/"
 	defaultConfigPath      = "/backplane/etc"
+	defaultPrivatePath     = "/etc/GT_private/services"
 )
 
 // DefaultCache is the default service cache
@@ -65,11 +60,14 @@ type Options struct {
 	// LivenessFilePath in Kubernetes environments, scamp services write an empty file to a
 	// designated directory to facilitate auto-scaling
 	LivenessFilePath string
+	// the discovery multicast IP, if this is not set the service uses the discovery.multicast_address
+	// key in the soa.conf file
+	//MultiCastIP net.IP
 }
 
 var defaultServiceOptions = Options{
-	KeyPath:          "",
-	CertPath:         "",
+	KeyPath:          defaultPrivatePath,
+	CertPath:         defaultPrivatePath,
 	AnnouncePath:     "",
 	SOAConfigPath:    defaultConfigPath,
 	LivenessFilePath: defaultLivenessDirPath,
@@ -77,27 +75,23 @@ var defaultServiceOptions = Options{
 
 // Service represents a scamp service
 type Service struct {
-	options     Options
-	serviceSpec string
-	sector      string
-	name        string
-	humanName   string
-
+	options      Options
+	desc         ServiceDesc
 	listener     net.Listener
 	listenerIP   net.IP
 	listenerPort int
 
-	actions   map[string]*ServiceAction
-	isRunning bool
+	actions        map[string]*ServiceAction
+	isRunning      bool
+	statsCloseChan chan bool
 
-	serveWG sync.WaitGroup // counts active Serve goroutines for GracefulStop
-
-	clientsM sync.Mutex
-	clients  []*Client
-	cert     tls.Certificate
-	pemCert  []byte // just a copy of what was read off disk at tls cert load time
-
-	statsCloseChan      chan bool
+	mu                  sync.Mutex
+	serveWG             sync.WaitGroup // counts active Serve goroutines for GracefulStop
+	clients             []*Client
+	cert                tls.Certificate
+	pemCert             []byte // just a copy of what was read off disk at tls cert load time
+	quit                chan struct{}
+	done                chan struct{}
 	connectionsAccepted uint64
 }
 
@@ -141,9 +135,13 @@ func (o *Options) merge() {
 
 // NewService initializes and returns pointer to a new scamp service
 func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
+	if opts == nil {
+		opts = &Options{}
+	}
+
 	err := validateServiceDesc(desc)
 	if err != nil {
-		log.Fatalf("couldn't create service: %s", err)
+		Error.Fatalf("couldn't create service: %s", err)
 	}
 	opts.merge()
 
@@ -159,40 +157,33 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 
 	cache, err := NewServiceCache(cachePath)
 	if err != nil {
-		log.Fatalf("couldn't create service cache: %s", err)
+		Error.Fatalf("couldn't create service cache: %s", err)
 	}
 	DefaultCache = cache
 
-	// TODO: consider using an alternate certpath/keypath in options
-	// override ServiceCertPath/ServiceKeyPath to use opts
-	crtPath := DefaultConfig().ServiceCertPath(desc.HumanName)
-	keyPath := DefaultConfig().ServiceKeyPath(desc.HumanName)
+	crtPath := DefaultConfig().ServiceCertPath(desc.HumanName, opts.CertPath)
+	keyPath := DefaultConfig().ServiceKeyPath(desc.HumanName, opts.KeyPath)
 
-	// Load keypair for tls socket library to use
+	if crtPath == nil || keyPath == nil {
+		err = fmt.Errorf(
+			"could not find valid crt/key pair for service %s, using %s, %s",
+			desc.HumanName,
+			opts.CertPath,
+			opts.KeyPath,
+		)
+		return nil, err
+	}
+
 	keypair, err := tls.LoadX509KeyPair(string(crtPath), string(keyPath))
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: move this logic into ServiceOption func
-	if crtPath == nil || keyPath == nil {
-		err = fmt.Errorf(
-			"could not find valid crt/key pair for service %s (`%s`,`%s`)",
-			desc.HumanName,
-			//TODO: make sure the following fields are properly initialized
-			defaultServiceOptions.CertPath,
-			defaultServiceOptions.KeyPath,
-		)
-		return nil, err
-	}
-
 	service := &Service{
-		sector:      desc.Sector,
-		serviceSpec: desc.ServiceSpec,
-		humanName:   desc.HumanName,
-		actions:     make(map[string]*ServiceAction),
-		cert:        keypair,
-		pemCert:     loadPEMCertBytes(string(crtPath)),
+		desc:    desc,
+		actions: make(map[string]*ServiceAction),
+		cert:    keypair,
+		pemCert: loadPEMCertBytes(string(crtPath)),
 	}
 	service.generateRandomName()
 
@@ -207,102 +198,137 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 
 // TODO: port discovery and interface/IP discovery should happen here
 // important to set values so announce packets are correct
-func (serv *Service) listen() (err error) {
+func (s *Service) listen() (err error) {
 	config := &tls.Config{
-		Certificates: []tls.Certificate{serv.cert},
+		Certificates: []tls.Certificate{s.cert},
 	}
 
-	Info.Printf("starting service on %s", serv.serviceSpec)
-	serv.listener, err = tls.Listen("tcp", serv.serviceSpec, config)
+	Info.Printf("starting service on %s", s.desc.ServiceSpec)
+	// TODO: I'm pretty sure that tls 1.2 requires specific ports (e.g. 443,465,993,995)
+	// need to ensure that we are using those ports if we are using or going to use tls 1.2 for RPC
+	s.listener, err = tls.Listen("tcp", s.desc.ServiceSpec, config)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to listen %v", err)
 	}
-	addr := serv.listener.Addr()
+
+	addr := s.listener.Addr()
 	Info.Printf("service now listening to %s", addr.String())
 
-	// TODO: get listenerIP to return 127.0.0.1 or something other than '::'/nil
-	// serv.listenerIP = serv.listener.Addr().(*net.TCPAddr).IP
-	serv.listenerIP, err = getIPForAnnouncePacket()
+	s.listenerIP, err = getIPForAnnouncePacket()
 	if err != nil {
 		return
 	}
 
-	serv.listenerPort = serv.listener.Addr().(*net.TCPAddr).Port
+	s.listenerPort = s.listener.Addr().(*net.TCPAddr).Port
 	return
 }
 
 // Register registers a service handler callback
-func (serv *Service) Register(name string, handler ServiceActionFunc) (err error) {
-	if serv.isRunning {
+func (s *Service) Register(name string, handler ServiceActionFunc) (err error) {
+	if s.isRunning {
 		err = errors.New("cannot register handlers while server is running")
 		return
 	}
 
-	serv.actions[name] = &ServiceAction{
+	s.actions[name] = &ServiceAction{
 		handler: handler,
 		version: 1,
 	}
 	return
 }
 
-//Run starts a scamp service
-func (serv *Service) Run() {
-	err := serv.createKubeLivenessFile()
+//Run starts a scamp service serving
+func (s *Service) Run() error {
+	err := s.createKubeLivenessFile(s.options.LivenessFilePath)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-forLoop:
-	for {
-		netConn, err := serv.listener.Accept()
-		if err != nil {
-			// Info.Printf("exiting service Run(): `%s`", err)
-			break forLoop
-		}
-		// Trace.Printf("accepted new connection...")
+	// sleep on accept failure (for backoff)
+	var delay time.Duration
 
-		//var tlsConn (*tls.Conn) = (netConn).(*tls.Conn)
+	for {
+		netConn, err := s.listener.Accept()
+		if err != nil {
+			if ne, ok := err.(interface {
+				Temporary() bool
+			}); ok && ne.Temporary() {
+				if delay == 0 {
+					delay = 5 * time.Millisecond
+				} else {
+					delay *= 2
+				}
+				if max := 1 * time.Second; delay > max {
+					delay = max
+				}
+				timer := time.NewTimer(delay)
+				select {
+				case <-timer.C:
+				case <-s.quit:
+					timer.Stop()
+					return nil
+				}
+				continue
+			}
+			select {
+			case <-s.quit:
+				return nil
+			default:
+			}
+			return err
+		}
+
+		// NOTE: our listener was created with tls.Listen() so any connection we accept is
+		// already "wrapped" with TLS but we have to assert the type here to store it
+		delay = 0
 		tlsConn := (netConn).(*tls.Conn)
 		if tlsConn == nil {
-			Error.Fatalf("could not create tlsConn")
-			break forLoop
+			Error.Printf("could not create tls connection")
+			break
 		}
 
+		// TODO: maybe we shouldn't bother creating "clients"
+		// for incoming connections when we can just use the connection directly
+		// it would be less overhead. Clients make sense for re-using connections
+		// that we initiate but not for this case
 		conn := NewConnection(tlsConn, "service")
-		client := NewClient(conn, "service")
+		client := NewClient(conn)
 
-		serv.clientsM.Lock()
-		serv.clients = append(serv.clients, client)
-		serv.clientsM.Unlock()
-
-		go serv.Handle(client)
-
-		atomic.AddUint64(&serv.connectionsAccepted, 1)
+		s.mu.Lock()
+		s.clients = append(s.clients, client)
+		s.mu.Unlock()
+		s.serveWG.Add(1)
+		go func() {
+			s.Handle(client)
+			s.serveWG.Done()
+		}()
+		//TODO: Do we need this?
+		atomic.AddUint64(&s.connectionsAccepted, 1)
 	}
 
-	// Info.Printf("closing all registered objects")
-
-	serv.clientsM.Lock()
-	for _, client := range serv.clients {
+	s.mu.Lock()
+	for _, client := range s.clients {
 		client.Close()
 	}
-	serv.clientsM.Unlock()
+	s.mu.Unlock()
 
-	serv.statsCloseChan <- true
+	s.statsCloseChan <- true
+	return nil
 }
 
 //Handle handles incoming client messages received via the cient MessageChan
-func (serv *Service) Handle(client *Client) {
+func (s *Service) Handle(client *Client) {
 	var action *ServiceAction
 	//Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
-HandlerLoop:
+
+handlerLoop:
 	for {
 		select {
 		case msg, ok := <-client.Incoming():
 			if !ok {
-				break HandlerLoop
+				break handlerLoop
 			}
-			action = serv.actions[msg.Action]
+			action = s.actions[msg.Action]
 
 			if action != nil {
 				// Info.Printf("handling action %s\n", action.crudTags)
@@ -318,25 +344,25 @@ HandlerLoop:
 				_, err := client.Send(reply)
 				if err != nil {
 					client.Close()
-					break HandlerLoop
+					break handlerLoop
 				}
 			}
 		case <-time.After(defaultMessageTimeout):
-			break HandlerLoop
+			break handlerLoop
 		}
 	}
 
 	client.Close()
-	serv.RemoveClient(client)
+	s.RemoveClient(client)
 }
 
 // RemoveClient removes a client from the scamp service
-func (serv *Service) RemoveClient(client *Client) (err error) {
-	serv.clientsM.Lock()
-	defer serv.clientsM.Unlock()
+func (s *Service) RemoveClient(client *Client) (err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	index := -1
-	for i, entry := range serv.clients {
+	for i, entry := range s.clients {
 		if client == entry {
 			index = i
 			break
@@ -345,40 +371,44 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 
 	if index == -1 {
 		Error.Printf("tried removing client that wasn't being tracked")
-		return fmt.Errorf("unknown client") // TODO can I get the client's IP?
+		return fmt.Errorf("unknown client") // TODO get the client's IP?
 	}
 
 	client.Close()
-	serv.clients = append(serv.clients[:index], serv.clients[index+1:]...)
+	s.clients = append(s.clients[:index], s.clients[index+1:]...)
 
 	return nil
 }
 
 // Stop closes the service's net.Listener
 // TODO: refactor
-func (serv *Service) Stop() {
-	if serv.listener != nil {
-		serv.listener.Close()
+func (s *Service) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.listener != nil {
+		s.listener.Close()
 	}
-	fmt.Println("shutting down")
-	err := serv.removeKubeLivenessFile()
+	Warning.Println("shutting down")
+
+	err := s.removeKubeLivenessFile(s.options.LivenessFilePath)
 	if err != nil {
 		fmt.Println("could not remove liveness file: ", err)
 	}
-	fmt.Println("shutdown done")
+	Info.Println("shutdown done")
 }
 
 // MarshalText serializes a scamp service for discovery broadcast
-func (serv *Service) MarshalText() (b []byte, err error) {
+func (s *Service) MarshalText() (b []byte, err error) {
 	var buf bytes.Buffer
 
-	serviceProxy := serviceAsServiceProxy(serv)
+	serviceProxy := serviceAsServiceProxy(s)
 
 	classRecord, err := serviceProxy.MarshalJSON() //json.Marshal(&serviceProxy) //Marshal is mangling service actions
 	if err != nil {
 		return
 	}
-	sig, err := signSHA256(classRecord, serv.cert.PrivateKey.(*rsa.PrivateKey))
+	sig, err := signSHA256(classRecord, s.cert.PrivateKey.(*rsa.PrivateKey))
 	if err != nil {
 		return
 	}
@@ -386,7 +416,7 @@ func (serv *Service) MarshalText() (b []byte, err error) {
 
 	buf.Write(classRecord)
 	buf.WriteString("\n\n")
-	buf.Write(serv.pemCert)
+	buf.Write(s.pemCert)
 	buf.WriteString("\n\n")
 	for _, part := range sigParts {
 		buf.WriteString(part)
@@ -425,35 +455,34 @@ func stringToRows(input string, rowlen int) (output []string) {
 	return
 }
 
-func (serv *Service) generateRandomName() {
+func (s *Service) generateRandomName() {
 	randBytes := make([]byte, 18, 18)
 	read, err := rand.Read(randBytes)
 	if err != nil {
 		// we can't announce a scamp service without a unique name so bail out
-		log.Fatalf("could not generate all rand bytes needed. only read %d of 18", read)
+		Error.Fatalf("could not generate all rand bytes needed. only read %d of 18", read)
 	}
 
 	base64RandBytes := base64.StdEncoding.EncodeToString(randBytes)
 
 	var buffer bytes.Buffer
-	buffer.WriteString(serv.humanName)
+	buffer.WriteString(s.desc.HumanName)
 	buffer.WriteString("-")
 	buffer.WriteString(base64RandBytes[0:])
-	serv.name = string(buffer.Bytes())
+	s.desc.name = string(buffer.Bytes())
 }
 
 // createKubeLivenessFile creates an empty file in the defaultLivenessDirPath to facilitate
 // kubernetes auto-scaling
-// TODO: we should discuss moving the path to the liveness file to a config file (like soa.conf)
-func (serv *Service) createKubeLivenessFile() error {
-	if _, err := os.Stat(defaultLivenessDirPath); os.IsNotExist(err) {
-		err = os.MkdirAll(defaultLivenessDirPath, 0755)
+func (s *Service) createKubeLivenessFile(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err = os.MkdirAll(path, 0755)
 		if err != nil {
 			return err
 		}
 	}
 
-	file, err := os.Create(defaultLivenessDirPath + serv.humanName)
+	file, err := os.Create(path + s.desc.HumanName)
 	if err != nil {
 		return err
 	}
@@ -461,9 +490,9 @@ func (serv *Service) createKubeLivenessFile() error {
 	return nil
 }
 
-func (serv *Service) removeKubeLivenessFile() error {
-	path := defaultLivenessDirPath + serv.humanName
-	err := os.Remove(path)
+func (s *Service) removeKubeLivenessFile(path string) error {
+	p := path + s.desc.HumanName
+	err := os.Remove(p)
 	if err != nil {
 		return err
 	}

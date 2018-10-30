@@ -1,9 +1,12 @@
 package scamp
 
-import "time"
-import "net"
+import (
+	"fmt"
+	"net"
+	"time"
 
-import "golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv4"
+)
 
 // DiscoveryAnnouncer ... TODO: godoc
 type DiscoveryAnnouncer struct {
@@ -20,7 +23,7 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 	announcer.stopSig = make(chan bool)
 
 	config := DefaultConfig()
-	announcer.multicastDest = &net.UDPAddr{IP: config.DiscoveryMulticastIP(), Port: config.DiscoveryMulticastPort()}
+	announcer.multicastDest = &net.UDPAddr{IP: config.discoveryMulticastIP(), Port: config.discoveryMulticastPort()}
 	// announcer.multicastDest = &net.UDPAddr{IP: 127.0.0.1, Port: config.DiscoveryMulticastPort()}
 	announcer.multicastConn, err = localMulticastPacketConn(config)
 	if err != nil {
@@ -36,8 +39,8 @@ func (announcer *DiscoveryAnnouncer) Stop() {
 }
 
 // Track indicates that announcer should track and announce service
-func (announcer *DiscoveryAnnouncer) Track(serv *Service) {
-	announcer.services = append(announcer.services, serv)
+func (announcer *DiscoveryAnnouncer) Track(s *Service) {
+	announcer.services = append(announcer.services, s)
 }
 
 // AnnounceLoop runs service announceloop and runs announcer.doAnnounce() at time
@@ -51,7 +54,10 @@ func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
 		case <-announcer.stopSig:
 			return
 		default:
-			announcer.doAnnounce()
+			err := announcer.doAnnounce()
+			if err != nil {
+				// do something
+			}
 		}
 
 		time.Sleep(time.Duration(defaultAnnounceInterval) * time.Second)
@@ -59,15 +65,15 @@ func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
 }
 
 func (announcer *DiscoveryAnnouncer) doAnnounce() (err error) {
-	for _, serv := range announcer.services {
-		serviceDesc, err := serv.MarshalText()
+	for _, s := range announcer.services {
+		serviceDesc, err := s.MarshalText()
 		if err != nil {
-			Error.Printf("failed to marshal service as text: `%s`. skipping.", err)
+			return fmt.Errorf("Failed to marshal service as text: `%s`. skipping", err)
 		}
 
 		_, err = announcer.multicastConn.WriteTo(serviceDesc, nil, announcer.multicastDest)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed writing to multicastConn: %s", err)
 		}
 	}
 

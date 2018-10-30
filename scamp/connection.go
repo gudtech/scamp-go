@@ -5,11 +5,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-
 	"strings"
 	"sync"
 	"sync/atomic"
 )
+
+const retryLimit = 50
 
 type incomingMsgNo uint64
 type outgoingMsgNo uint64
@@ -20,8 +21,8 @@ type Connection struct {
 	Fingerprint    string
 	readWriter     *bufio.ReadWriter
 	readWriterLock sync.Mutex
-	incomingmsgno  incomingMsgNo
-	outgoingmsgno  outgoingMsgNo
+	incomingMsgNo  incomingMsgNo
+	outgoingMsgNo  outgoingMsgNo
 	pktToMsg       map[incomingMsgNo](*Message)
 	msgs           chan *Message
 	client         *Client
@@ -79,8 +80,8 @@ func NewConnection(tlsConn *tls.Conn, connType string) (conn *Connection) {
 	}
 
 	conn.readWriter = bufio.NewReadWriter(bufio.NewReader(reader), bufio.NewWriter(writer))
-	conn.incomingmsgno = 0
-	conn.outgoingmsgno = 0
+	conn.incomingMsgNo = 0
+	conn.outgoingMsgNo = 0
 
 	conn.pktToMsg = make(map[incomingMsgNo](*Message))
 	conn.msgs = make(chan *Message)
@@ -144,7 +145,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 	case pkt.packetType == HEADER:
 		// Trace.Printf("HEADER")
 
-		incomingmsgno := atomic.LoadUint64((*uint64)(&conn.incomingmsgno))
+		incomingmsgno := atomic.LoadUint64((*uint64)(&conn.incomingMsgNo))
 		if pkt.msgNo != incomingmsgno {
 			err = fmt.Errorf("out of sequence msgno: expected %d but got %d", incomingmsgno, pkt.msgNo)
 			Error.Printf("%s", err)
@@ -175,7 +176,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 		// This is for sending out data
 		// conn.incomingNotifiers[pktMsgNo] = &make((chan *Message),1)
 
-		atomic.AddUint64((*uint64)(&conn.incomingmsgno), 1)
+		atomic.AddUint64((*uint64)(&conn.incomingMsgNo), 1)
 	case pkt.packetType == DATA:
 		// Trace.Printf("DATA")
 		// Append data
@@ -233,8 +234,6 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 	return
 }
 
-const RetryLimit = 50
-
 // Send sends a scamp message using the current *Connection
 func (conn *Connection) Send(msg *Message) (err error) {
 	if conn == nil {
@@ -251,8 +250,8 @@ func (conn *Connection) Send(msg *Message) (err error) {
 		return
 	}
 
-	outgoingmsgno := atomic.LoadUint64((*uint64)(&conn.outgoingmsgno))
-	atomic.AddUint64((*uint64)(&conn.outgoingmsgno), 1)
+	outgoingmsgno := atomic.LoadUint64((*uint64)(&conn.outgoingMsgNo))
+	atomic.AddUint64((*uint64)(&conn.outgoingMsgNo), 1)
 
 	// Trace.Printf("sending msgno %d", outgoingmsgno)
 
@@ -284,7 +283,7 @@ func (conn *Connection) Send(msg *Message) (err error) {
 						break
 					}
 
-					if retries > RetryLimit {
+					if retries > retryLimit {
 						return fmt.Errorf("Retried too many times: %s", err)
 					}
 

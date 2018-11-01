@@ -8,16 +8,16 @@ import (
 
 // Client represents a scamp client
 type Client struct {
-	conn            *Connection
-	service         *Service
-	requests        chan *Message
-	openReplies     map[int]chan *Message
-	openRepliesLock sync.Mutex
-	isClosed        bool
-	closedM         sync.Mutex
-	sendM           sync.Mutex
-	nextRequestID   int
-	spIdent         string
+	conn           *Connection
+	service        *Service
+	requests       chan *Message
+	openRepliesMut sync.Mutex
+	openReplies    map[int]chan *Message
+	isClosed       bool
+	closedMut      sync.Mutex
+	sendMut        sync.Mutex
+	nextRequestID  int
+	spIdent        string
 }
 
 // Dial calls DialConnection to establish a secure (tls) connection,
@@ -57,8 +57,8 @@ func (client *Client) SetService(s *Service) {
 // so that we don't need to rely on garbage collection of channels
 // when we're replying and don't expect or need a response
 func (client *Client) Send(msg *Message) (responseChan chan *Message, err error) {
-	client.sendM.Lock()
-	defer client.sendM.Unlock()
+	client.sendMut.Lock()
+	defer client.sendMut.Unlock()
 
 	client.nextRequestID++
 	msg.RequestID = client.nextRequestID
@@ -71,9 +71,9 @@ func (client *Client) Send(msg *Message) (responseChan chan *Message, err error)
 	if msg.MessageType == MessageTypeRequest {
 		// Trace.Printf("sending request so waiting for reply")
 		responseChan = make(chan *Message)
-		client.openRepliesLock.Lock()
+		client.openRepliesMut.Lock()
 		client.openReplies[msg.RequestID] = responseChan
-		client.openRepliesLock.Unlock()
+		client.openRepliesMut.Unlock()
 	} else {
 		// Trace.Printf("sending reply so done with this message")
 	}
@@ -90,8 +90,8 @@ func (client *Client) Close() {
 		}
 	}
 
-	client.closedM.Lock()
-	defer client.closedM.Unlock()
+	client.closedMut.Lock()
+	defer client.closedMut.Unlock()
 
 	if client.isClosed {
 		return
@@ -103,7 +103,7 @@ func (client *Client) Close() {
 		client.service.RemoveClient(client)
 	}
 
-	client.isClosed = true
+	client.isClosed = true // write race
 }
 
 // closeConnection calls client.conn.Close() and sets the client.conn to nil
@@ -111,7 +111,7 @@ func (client *Client) closeConnection(conn *Connection) {
 	if !client.conn.isClosed {
 		client.conn.Close()
 	}
-	client.conn = nil
+	client.conn = nil // race
 }
 
 //func (client *Client) splitReqsAndReps(grNum, clientID int) (err error) {
@@ -122,7 +122,7 @@ forLoop:
 	for {
 		// Trace.Printf("Entering forLoop splitReqsAndReps")
 		select {
-		case message, ok := <-client.conn.msgs:
+		case message, ok := <-client.conn.msgs: //race
 			if !ok {
 				// Trace.Printf("client.conn.msgs... CLOSED!")
 				break forLoop
@@ -138,16 +138,16 @@ forLoop:
 				// and the client closes
 				client.requests <- message
 			} else if message.MessageType == MessageTypeReply {
-				client.openRepliesLock.Lock()
+				client.openRepliesMut.Lock()
 				replyChan = client.openReplies[message.RequestID]
 				if replyChan == nil {
 					// Error.Printf("got an unexpected reply for requestId: %d. Skipping.", message.RequestID)
-					client.openRepliesLock.Unlock()
+					client.openRepliesMut.Unlock()
 					continue
 				}
 
 				delete(client.openReplies, message.RequestID)
-				client.openRepliesLock.Unlock()
+				client.openRepliesMut.Unlock()
 
 				replyChan <- message
 			} else {
@@ -159,12 +159,12 @@ forLoop:
 
 	// Trace.Printf("done with SplitReqsAndReps")
 	close(client.requests)
-	client.openRepliesLock.Lock()
+	client.openRepliesMut.Lock()
 	for _, openReplyChan := range client.openReplies {
 		close(openReplyChan)
 	}
-	client.openRepliesLock.Unlock()
-	if !client.isClosed {
+	defer client.openRepliesMut.Unlock()
+	if !client.isClosed { //read (race)
 		client.Close()
 	}
 

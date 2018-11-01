@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"os" // "encoding/json"
 	"sync"
@@ -60,7 +59,7 @@ type Options struct {
 	// LivenessFilePath in Kubernetes environments, scamp services write an empty file to a
 	// designated directory to facilitate auto-scaling
 	LivenessFilePath string
-	// the discovery multicast IP, if this is not set the service uses the discovery.multicast_address
+	// TODO: he discovery multicast IP, if this is not set the service uses the discovery.multicast_address
 	// key in the soa.conf file
 	//MultiCastIP net.IP
 }
@@ -125,6 +124,7 @@ func (o *Options) merge() {
 			o.KeyPath = defaultServiceOptions.KeyPath
 		}
 		if len(o.LivenessFilePath) == 0 {
+			// panic("Empty LivenessFilePath: " + o.LivenessFilePath)
 			o.LivenessFilePath = defaultServiceOptions.LivenessFilePath
 		}
 		if len(o.SOAConfigPath) == 0 {
@@ -147,12 +147,12 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 
 	err = initConfig(opts.SOAConfigPath)
 	if err != nil {
-		log.Fatal("could not initialize scamp environment: ", err)
+		Error.Fatalf("could not initialize scamp environment: %s", err)
 	}
 
 	cachePath, ok := DefaultConfig().Get("discovery.cache_path")
 	if !ok {
-		log.Fatal("no such config param `discovery.cache_path`: this key must be present in soa.conf to use scamp-go")
+		Error.Fatal("no such config param `discovery.cache_path`: this key must be present in soa.conf to use scamp-go")
 	}
 
 	cache, err := NewServiceCache(cachePath)
@@ -186,12 +186,12 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 		pemCert: loadPEMCertBytes(string(crtPath)),
 	}
 	service.generateRandomName()
+	service.options = *opts
 
 	err = service.listen()
 	if err != nil {
 		return nil, err
 	}
-
 	service.statsCloseChan = make(chan bool)
 	return service, nil
 }
@@ -241,7 +241,7 @@ func (s *Service) Register(name string, handler ServiceActionFunc) (err error) {
 func (s *Service) Run() error {
 	err := s.createKubeLivenessFile(s.options.LivenessFilePath)
 	if err != nil {
-		fmt.Println(err)
+		Error.Printf("could not create liveness file: %s\n", err)
 	}
 
 	// sleep on accept failure (for backoff)
@@ -521,7 +521,7 @@ func validateServiceDesc(desc ServiceDesc) error {
 func loadPEMCertBytes(filePath string) []byte {
 	pemCert, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Fatal("could not load certificate file")
+		Error.Fatal("could not load certificate file")
 	}
 	return bytes.TrimSpace(pemCert)
 }

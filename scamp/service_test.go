@@ -1,68 +1,98 @@
 package scamp
 
-import "testing"
-import "time"
-import "bytes"
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"testing"
+	"time"
+)
 
-// TODO: fix Session API (aka, simplify design by dropping it)
 func TestServiceHandlesRequest(t *testing.T) {
-	// Initialize("./../fixtures/sample_soa.conf")
-	// // TODO: servicekeypath and servicecertpath should allow for mocking
-	// // sp that we can test services
-	// hasStopped := make(chan bool)
-	// service := spawnTestService(hasStopped)
-	// // connectToTestService(t)
+	hasStopped := make(chan bool)
+	s := spawnTestService(t, hasStopped)
+	spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
+	connectToTestService(t, spec)
 	// time.Sleep(1000 * time.Millisecond)
-	// service.Stop()
-	// <-hasStopped
-
+	s.Stop()
+	<-hasStopped
 }
 
-func spawnTestService(hasStopped chan bool) (service *Service) {
+func spawnTestService(t *testing.T, hasStopped chan bool) (service *Service) {
 	desc := ServiceDesc{
 		Sector:      "test",
 		ServiceSpec: "0.0.0.0:0",
-		HumanName:   "helloworld",
+		HumanName:   "sample",
 	}
-	opts := &Options{}
+	opts := &Options{
+		SOAConfigPath: "./../../scamp-go/fixtures/soa.conf",
+		KeyPath:       "./../../scamp-go/fixtures",
+		CertPath:      "./../../scamp-go/fixtures",
+	}
 	service, err := NewService(desc, opts)
 	if err != nil {
-		Error.Fatalf("error creating new service: `%s`", err)
+		t.Fatalf("error creating new service: `%s`", err)
 	}
+
+	type helloResponse struct {
+		Test string `json:"test"`
+	}
+
 	service.Register("helloworld.hello", func(message *Message, client *Client) {
-		panic("what")
+		respMsg := NewMessage()
+		if respMsg == nil {
+			t.Fatal("newMessage was nil")
+		}
+		respMsg.RequestID = 2
+		respMsg.Envelope = EnvelopeJSON
+		respMsg.Version = 1
+		respMsg.MessageType = MessageTypeReply
+		body := helloResponse{
+			Test: "success",
+		}
+
+		respMsg.WriteJSON(body)
+		_, err := client.Send(respMsg)
+		if err != nil {
+			t.Fatalf("response send failed: %s", err)
+		}
 	})
 
 	go func() {
-		service.Run()
+		service.Run() //GR 28
 		hasStopped <- true
 	}()
 	return
 }
 
-func connectToTestService(t *testing.T) {
-	client, err := Dial("127.0.0.1:30100")
+func connectToTestService(t *testing.T, spec string) {
+	Info.Printf("Dialing %s", spec)
+	client, err := Dial(spec)
+	if err != nil {
+		t.Fatalf("could not connect! `%s`\n", err)
+	}
 	defer client.Close()
 
-	if err != nil {
-		Error.Fatalf("could not connect! `%s`\n", err)
+	msg := &Message{
+		RequestID:   1,
+		Action:      "helloworld.hello",
+		Envelope:    EnvelopeJSON,
+		Version:     1,
+		MessageType: MessageTypeRequest,
 	}
-
-	responseChan, err := client.Send(&Message{
-		Action:   "helloworld.hello",
-		Envelope: EnvelopeJSON,
-		Version:  1,
-	})
+	responseChan, err := client.Send(msg)
 	if err != nil {
-		Error.Fatalf("error initiating session: `%s`", err)
-		t.FailNow()
+		t.Fatalf("error initiating session: `%s`", err)
 	}
-
+	expected := []byte(`{"test":"success"}`)
 	select {
 	case msg := <-responseChan:
-		if !bytes.Equal(msg.Bytes(), []byte("sup")) {
-			t.Fatalf("did not get expected response `sup`")
+		// JSON resp includes a newline character that we don't want
+		resp := bytes.TrimRight(msg.Bytes(), "\n")
+		if !bytes.Equal(resp, expected) {
+			Error.Printf("resp: %s", string(resp))
+			t.Fatalf("\nExpected:\t%q\nReceived:\t%q", expected, resp)
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timed out waiting for response")
@@ -71,18 +101,18 @@ func connectToTestService(t *testing.T) {
 	return
 }
 
-// TODO: I'm cutting some corners in this test, it tests two complicated things at once:
+// TODO: cutting some corners in this test, it tests two complicated things at once:
 // 1. Copying `Service` properties to new `ServiceProxy`
 // 2. Marshaling `ServiceProxy` to announce format
 func TestServiceToProxyMarshal(t *testing.T) {
 	desc := ServiceDesc{
-		ServiceSpec: "0.0.0.0:0",
-		HumanName:   "a-cool-name",
+		ServiceSpec: "0.0.0.0:30100",
+		HumanName:   "sample",
 		Sector:      "main",
 	}
 
 	opts := &Options{
-		SOAConfigPath: "./../../scamp-go/fixtures",
+		SOAConfigPath: "./../../scamp-go/fixtures/soa.conf",
 		KeyPath:       "./../../scamp-go/fixtures",
 		CertPath:      "./../../scamp-go/fixtures",
 	}
@@ -101,60 +131,43 @@ func TestServiceToProxyMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not serialize service proxy")
 	}
-	expected := []byte(`[3,"a-cool-name-1234","main",1,2500,"beepish+tls://174.10.10.10:30100",["json"],[["Logging",["info","",1]]],10.000000]`)
-	if !bytes.Equal(b, expected) {
-		t.Fatalf("expected: `%s`,\n\tgot:\t`%s`\n", expected, b)
-	}
 
+	re := regexp.MustCompile(`(?m)((\[3,"sample-)|(,"main",1,2500,"beepish\+tls://)|(:30100",\["json"\],\[\["Logging",\["info","",1\]\]\],.*\]))`)
+	expected := `[3,"sample-XXXXX","main",1,2500,"beepish+tls://174.10.10.10:30100",["json"],[["Logging",["info","",1]]],10.000000]`
+	matches := re.FindAllString(string(b), -1) //{
+
+	if len(matches) < 3 {
+		t.Fatalf("\nexpected: \t`%s`,\n\tgot:\t`%s`\n", expected, b)
+	}
 }
 
 func TestFullServiceMarshal(t *testing.T) {
-	// TODO big assumption that you environment is set up like mine:
-	//   root repo `scamp-go` has a sibling folder called `scamp-go-workspace` where `scamp-go`
-	//   is symlinked in as such: ../scamp-go-workspace/src/github.com/gudtech/scamp-go
-	// it's crazy, I know. thanks GOPATH.
-	// cert, err := tls.LoadX509KeyPair("./../../scamp-go/fixtures/sample.crt", "./../../scamp-go/fixtures/sample.key")
-	// if err != nil {
-	// 	t.Fatalf("could not load fixture keypair: `%s`", err)
-	// }
-
-	// encodedCert, err := ioutil.ReadFile("./../fixtures/sample.crt")
-	// if err != nil {
-	// 	t.Fatalf("could not load fixture certificate")
-	// }
-	// encodedCert = bytes.TrimSpace(encodedCert)
 	desc := ServiceDesc{
 		ServiceSpec: "0.0.0.0:0",
 		HumanName:   "sample",
 		Sector:      "main",
 	}
 	opts := &Options{
-		KeyPath:  "./../../scamp-go/fixtures",
-		CertPath: "./../../scamp-go/fixtures",
+		SOAConfigPath: "./../../scamp-go/fixtures/soa.conf",
+		KeyPath:       "./../../scamp-go/fixtures",
+		CertPath:      "./../../scamp-go/fixtures",
 	}
 	s, err := NewService(desc, opts)
 	if err != nil {
-
+		t.Fatalf("could not create service: %s", err)
 	}
-	// s := Service{
-	// 	serviceSpec:  "123",
-	// 	humanName:    "a-cool-name",
-	// 	name:         "a-cool-name-1234",
-	// 	sector:       "main",
-	// 	listenerIP:   net.ParseIP("174.10.10.10"),
-	// 	listenerPort: 30100,
-	// 	actions:      make(map[string]*ServiceAction),
-	// 	pemCert:      encodedCert,
-	// 	cert:         cert,
-	// }
+
 	s.Register("Logging.info", func(_ *Message, _ *Client) {
 	})
 
-	// TODO: confirm output of marshalling the payload.
-	_, err = s.MarshalText()
+	b, err := s.MarshalText()
 	if err != nil {
 		t.Fatalf("unexpected error serializing service: `%s`", err)
 	}
-	// t.Fatalf("b: `%s`", b)
-
+	re := regexp.MustCompile(`(?m)((\[3,"sample-)|(,"main",1,2500,"beepish\+tls://)|(",\["json"\],\[\["Logging",\["info","",1\]\]\],.*\])|(-----BEGIN CERTIFICATE-----)|(-----END CERTIFICATE-----))`)
+	matches := re.FindAllString(string(b), -1)
+	expected := `[3,"sample-38xM9dgjDlRFEJM6g65Xpbvq","main",1,2500,"beepish+tls://192.168.1.22:63408",["json"],[["Logging",["info","",1]]],1541018464.480262]`
+	if len(matches) < 5 {
+		t.Fatalf("\nexpected: \t`%s`,\n\tgot:\t`%s`\n", expected, b)
+	}
 }

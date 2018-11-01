@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"net"
 	u "net/url"
 	"strconv"
@@ -89,7 +88,7 @@ func (sp *serviceProxy) baseIdent() string {
 func (sp *serviceProxy) shortHostname() string {
 	url, err := u.Parse(sp.connspec)
 	if err != nil {
-		log.Fatal(err)
+		Error.Fatal(err)
 	}
 
 	hostParts := strings.Split(url.Host, ":")

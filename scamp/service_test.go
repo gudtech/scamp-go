@@ -14,7 +14,6 @@ func TestServiceHandlesRequest(t *testing.T) {
 	s := spawnTestService(t, hasStopped)
 	spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
 	connectToTestService(t, spec)
-	// time.Sleep(1000 * time.Millisecond)
 	s.Stop()
 	<-hasStopped
 }
@@ -26,9 +25,10 @@ func spawnTestService(t *testing.T, hasStopped chan bool) (service *Service) {
 		HumanName:   "sample",
 	}
 	opts := &Options{
-		SOAConfigPath: "./../../scamp-go/fixtures/soa.conf",
-		KeyPath:       "./../../scamp-go/fixtures",
-		CertPath:      "./../../scamp-go/fixtures",
+		SOAConfigPath:    "./../../scamp-go/fixtures/soa.conf",
+		KeyPath:          "./../../scamp-go/fixtures",
+		CertPath:         "./../../scamp-go/fixtures",
+		LivenessFilePath: "./../../scamp-go/fixtures",
 	}
 	service, err := NewService(desc, opts)
 	if err != nil {
@@ -60,7 +60,7 @@ func spawnTestService(t *testing.T, hasStopped chan bool) (service *Service) {
 	})
 
 	go func() {
-		service.Run() //GR 28
+		service.Run()
 		hasStopped <- true
 	}()
 	return
@@ -72,7 +72,6 @@ func connectToTestService(t *testing.T, spec string) {
 	if err != nil {
 		t.Fatalf("could not connect! `%s`\n", err)
 	}
-	defer client.Close()
 
 	msg := &Message{
 		RequestID:   1,

@@ -6,13 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 )
 
 const (
 	theRestSize = 5
 )
 
-var packetSeenSinceBoot = 0
+var (
+	packetSeenSinceBoot = 0
+	pssbMutex           sync.Mutex
+)
 
 // Packet represents a message packet
 type Packet struct {
@@ -110,7 +114,9 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 	}
 
 	// Trace.Printf("(%d) done reading packet", packetSeenSinceBoot)
+	pssbMutex.Lock()
 	packetSeenSinceBoot = packetSeenSinceBoot + 1
+	pssbMutex.Unlock()
 	return pkt, nil
 }
 

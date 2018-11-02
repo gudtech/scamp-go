@@ -12,7 +12,9 @@ import (
 // Config represents scamp config
 type Config struct {
 	// string key for easy equals, byte return for easy nil
-	values map[string][]byte
+	values            map[string][]byte
+	testMultiCastIP   net.IP
+	testMultiCastPort int
 }
 
 // TODO: Will I regret using such a common name as a global variable?
@@ -121,6 +123,10 @@ func (conf *Config) ServiceCertPath(serviceName, optPath string) []byte {
 // discoveryMulticastIP returns the configured discovery address, or the default one
 // if there is no configured address (discovery.multicast_address)
 func (conf *Config) discoveryMulticastIP() (ip net.IP) {
+	if conf.testMultiCastIP != nil {
+		return conf.testMultiCastIP
+	}
+
 	rawAddr := conf.values["discovery.multicast_address"]
 	if rawAddr != nil {
 		return net.ParseIP(string(rawAddr))
@@ -132,6 +138,9 @@ func (conf *Config) discoveryMulticastIP() (ip net.IP) {
 // DiscoveryMulticastPort returns the configured discovery port, or the default one
 // if there is no configured port (discovery.port)
 func (conf *Config) discoveryMulticastPort() (port int) {
+	if conf.testMultiCastPort > 0 {
+		return conf.testMultiCastPort
+	}
 	portBytes := conf.values["discovery.port"]
 	if portBytes != nil {
 		port64, err := strconv.ParseInt(string(portBytes), 10, 0)

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// MakeJSONRequest retreives the appropriate service proxy based on the message action, and makes a
+// MakeJSONRequest retrieves the appropriate service proxy based on the message action, and makes a
 // JSON request.
 func MakeJSONRequest(sector, action string, version int, msg *Message) (message *Message, err error) {
 	var msgType string
@@ -19,15 +19,16 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		err = fmt.Errorf("unsupported envelope type: `%d`", msg.Envelope)
 		return
 	}
-
-	err = DefaultCache.Refresh()
+	defaultCacheMut.Lock()
+	err = defaultCache.Refresh()
+	defer defaultCacheMut.Unlock()
 	if err != nil {
 		return
 	}
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
 
-	serviceProxies, err = DefaultCache.SearchByAction(sector, action, version, msgType)
+	serviceProxies, err = defaultCache.SearchByAction(sector, action, version, msgType)
 	if err != nil {
 		return
 	}
@@ -53,7 +54,10 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 			clients = append(clients, client)
 		}
 	}
-
+	if len(clients) == 0 {
+		err = fmt.Errorf("no clients")
+		return
+	}
 	rand.Shuffle(len(clients), func(i, j int) {
 		clients[i], clients[j] = clients[j], clients[i]
 	})
@@ -70,6 +74,8 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		if err == nil {
 			sent = true
 			break
+		} else {
+			Error.Println("not sent: ", err)
 		}
 	}
 

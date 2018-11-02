@@ -4,37 +4,53 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net"
 	"regexp"
 	"testing"
 	"time"
 )
 
 func TestServiceHandlesRequest(t *testing.T) {
-	hasStopped := make(chan bool)
-	s := spawnTestService(t, hasStopped)
+	s := spawnTestService(t)
 	spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
 	connectToTestService(t, spec)
 	s.Stop()
-	<-hasStopped
 }
 
-func spawnTestService(t *testing.T, hasStopped chan bool) (service *Service) {
+func GetOutboundConnection() (net.IP, int) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	fmt.Printf("%v:%v", localAddr.IP, localAddr.Port)
+	return localAddr.IP, localAddr.Port
+}
+
+func spawnTestService(t *testing.T) (service *Service) {
 	desc := ServiceDesc{
 		Sector:      "test",
 		ServiceSpec: "0.0.0.0:0",
 		HumanName:   "sample",
 	}
+	ip, port := GetOutboundConnection()
 	opts := &Options{
 		SOAConfigPath:    "./../../scamp-go/fixtures/soa.conf",
 		KeyPath:          "./../../scamp-go/fixtures",
 		CertPath:         "./../../scamp-go/fixtures",
 		LivenessFilePath: "./../../scamp-go/fixtures",
+		MultiCastIP:      ip,
+		MultiCastPort:    port,
 	}
 	service, err := NewService(desc, opts)
 	if err != nil {
 		t.Fatalf("error creating new service: `%s`", err)
 	}
-
+	spec := fmt.Sprintf("%s:%v", service.listenerIP, service.listenerPort)
+	Info.Println("SPEC: ", spec)
 	type helloResponse struct {
 		Test string `json:"test"`
 	}
@@ -61,8 +77,13 @@ func spawnTestService(t *testing.T, hasStopped chan bool) (service *Service) {
 
 	go func() {
 		service.Run()
-		hasStopped <- true
 	}()
+	if defaultAnnouncer == nil {
+		t.Fatal("announcer is nil")
+	}
+	if !defaultAnnouncer.isStopped {
+		t.Fatal("announcer is stopped")
+	}
 	return
 }
 

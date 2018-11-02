@@ -61,11 +61,10 @@ func (sp *serviceProxy) GetClient() (client *Client, err error) {
 			return
 		}
 	}
-
-	client = sp.client
 	if client == nil {
 		return nil, fmt.Errorf("client is nil")
 	}
+	client = sp.client
 
 	//using ident so that we can set the service proxy's client to nil in client.Close()
 	client.spIdent = sp.ident

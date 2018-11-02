@@ -50,7 +50,7 @@ func (cache *AuthorizedServicesCache) LoadAuthorizedServices(s *bufio.Scanner) (
 	return
 }
 
-// NewAuthorizedServicesSpec returns a pointer to an AuthorizedServiceSpec which contains the service's fingerprint and svailable actions
+// NewAuthorizedServicesSpec returns a pointer to an AuthorizedServiceSpec which contains the service's fingerprint and available actions
 func NewAuthorizedServicesSpec(line []byte) (spec *AuthorizedServiceSpec, err error) {
 	s := bufio.NewScanner(bytes.NewReader(line))
 	s.Split(bufio.ScanWords)

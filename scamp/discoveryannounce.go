@@ -11,6 +11,7 @@ import (
 
 // DiscoveryAnnouncer ... TODO: godoc
 type DiscoveryAnnouncer struct {
+	mu            sync.RWMutex
 	services      []*Service
 	multicastConn *ipv4.PacketConn
 	multicastDest *net.UDPAddr
@@ -58,8 +59,9 @@ func (a *DiscoveryAnnouncer) start() {
 		wg.Add(1)
 		go func() {
 			//TODO: should we use waitgroup here?
-			a.isStopped = false
+			a.running()
 			a.announceLoop()
+			Warning.Println("exited announceloop")
 			wg.Done()
 		}()
 	})
@@ -80,7 +82,8 @@ announceloop:
 		default:
 			err := a.doAnnounce()
 			if err != nil {
-				Error.Fatalf("doAnnounce error: %s\n", err)
+				Error.Printf("doAnnounce error: %s\n", err)
+				a.stopped()
 				break announceloop
 			}
 		}
@@ -90,9 +93,14 @@ announceloop:
 	Warning.Println("exiting announceLoop")
 }
 
+// TODO: handle there being no services tracked by the announcer and provide a method to update the
+// tracked service while the announceloop is running or to restart an announceloop once there are
+// services to track. Possibly use agent pattern for announcer
 func (a *DiscoveryAnnouncer) doAnnounce() (err error) {
 	if len(a.services) == 0 {
-		panic("service len 0")
+		Warning.Println("No services are being tracked")
+		//just noop for now. Should eventually return custom error type
+		return nil
 	}
 	for _, s := range a.services {
 		var serviceDesc []byte
@@ -117,6 +125,22 @@ func (a *DiscoveryAnnouncer) doAnnounce() (err error) {
 	return
 }
 
+// stopped sets isStopped to true
 func (a *DiscoveryAnnouncer) stopped() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	a.isStopped = true
+}
+
+// hasStopped returns a.isStopped
+func (a *DiscoveryAnnouncer) hasStopped() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.isStopped
+}
+
+func (a *DiscoveryAnnouncer) running() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.isStopped = false
 }

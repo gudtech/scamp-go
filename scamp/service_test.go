@@ -36,26 +36,23 @@ func spawnTestService(t *testing.T) (service *Service) {
 		ServiceSpec: "0.0.0.0:0",
 		HumanName:   "sample",
 	}
-	ip, port := GetOutboundConnection()
 	opts := &Options{
 		SOAConfigPath:    "./../../scamp-go/fixtures/soa.conf",
 		KeyPath:          "./../../scamp-go/fixtures",
 		CertPath:         "./../../scamp-go/fixtures",
 		LivenessFilePath: "./../../scamp-go/fixtures",
-		MultiCastIP:      ip,
-		MultiCastPort:    port,
 	}
 	service, err := NewService(desc, opts)
 	if err != nil {
 		t.Fatalf("error creating new service: `%s`", err)
 	}
-	spec := fmt.Sprintf("%s:%v", service.listenerIP, service.listenerPort)
-	Info.Println("SPEC: ", spec)
+	Info.Println("SPEC: ", fmt.Sprintf("%s:%v", service.listenerIP, service.listenerPort))
 	type helloResponse struct {
 		Test string `json:"test"`
 	}
 
 	service.Register("helloworld.hello", func(message *Message, client *Client) {
+		Info.Println("received helloworld.hello request")
 		respMsg := NewMessage()
 		if respMsg == nil {
 			t.Fatal("newMessage was nil")
@@ -80,9 +77,6 @@ func spawnTestService(t *testing.T) (service *Service) {
 	}()
 	if defaultAnnouncer == nil {
 		t.Fatal("announcer is nil")
-	}
-	if !defaultAnnouncer.isStopped {
-		t.Fatal("announcer is stopped")
 	}
 	return
 }
@@ -129,6 +123,7 @@ func TestServiceToProxyMarshal(t *testing.T) {
 		ServiceSpec: "0.0.0.0:30100",
 		HumanName:   "sample",
 		Sector:      "main",
+		name:        "logger-b3/QF6hT+7tEJVVoVkvmxl8n",
 	}
 
 	opts := &Options{
@@ -152,12 +147,12 @@ func TestServiceToProxyMarshal(t *testing.T) {
 		t.Fatalf("could not serialize service proxy")
 	}
 
-	re := regexp.MustCompile(`(?m)((\[3,"sample-)|(,"main",1,2500,"beepish\+tls://)|(:30100",\["json"\],\[\["Logging",\["info","",1\]\]\],.*\]))`)
+	re := regexp.MustCompile(`(?m)((\[3,"logger-b3\/QF6hT\+7tEJVVoVkvmxl8n")|(,"main",1,2500,"beepish\+tls://)|(",\["json"\],\[\["Logging",\["info","",1\]\]\],.*\]))`)
 	expected := `[3,"sample-XXXXX","main",1,2500,"beepish+tls://174.10.10.10:30100",["json"],[["Logging",["info","",1]]],10.000000]`
 	matches := re.FindAllString(string(b), -1) //{
 
 	if len(matches) < 3 {
-		t.Fatalf("\nexpected: \t`%s`,\n\tgot:\t`%s`\n", expected, b)
+		t.Fatalf("\nexpected: \t`%s`\n\tgot:\t`%s`\n", expected, b)
 	}
 }
 
@@ -166,6 +161,7 @@ func TestFullServiceMarshal(t *testing.T) {
 		ServiceSpec: "0.0.0.0:0",
 		HumanName:   "sample",
 		Sector:      "main",
+		name:        "logger-b3/QF6hT+7tEJVVoVkvmxl8n",
 	}
 	opts := &Options{
 		SOAConfigPath: "./../../scamp-go/fixtures/soa.conf",
@@ -184,10 +180,10 @@ func TestFullServiceMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error serializing service: `%s`", err)
 	}
-	re := regexp.MustCompile(`(?m)((\[3,"sample-)|(,"main",1,2500,"beepish\+tls://)|(",\["json"\],\[\["Logging",\["info","",1\]\]\],.*\])|(-----BEGIN CERTIFICATE-----)|(-----END CERTIFICATE-----))`)
+	re := regexp.MustCompile(`(?m)((\[3,"logger-b3\/QF6hT\+7tEJVVoVkvmxl8n")|(,"main",1,2500,"beepish\+tls://)|(",\["json"\],\[\["Logging",\["info","",1\]\]\],.*\])|(-----BEGIN CERTIFICATE-----)|(-----END CERTIFICATE-----))`)
 	matches := re.FindAllString(string(b), -1)
-	expected := `[3,"sample-38xM9dgjDlRFEJM6g65Xpbvq","main",1,2500,"beepish+tls://192.168.1.22:63408",["json"],[["Logging",["info","",1]]],1541018464.480262]`
+	expected := `[3,"logger-b3/QF6hT+7tEJVVoVkvmxl8n","main",1,2500,"beepish+tls://192.168.1.22:63408",["json"],[["Logging",["info","",1]]],1541018464.480262]`
 	if len(matches) < 5 {
-		t.Fatalf("\nexpected: \t`%s`,\n\tgot:\t`%s`\n", expected, b)
+		t.Fatalf("\nexpected: \t`%s`\n\tgot:\t`%s`\n", expected, b)
 	}
 }

@@ -18,6 +18,8 @@ type Client struct {
 	sendMut        sync.Mutex
 	nextRequestID  int
 	spIdent        string
+	closeOnce      sync.Once
+	closeReqChan   sync.Once
 }
 
 // Dial calls DialConnection to establish a secure (tls) connection,
@@ -38,9 +40,6 @@ func NewClient(conn *Connection) (client *Client) {
 		requests:    make(chan *Message), //TODO: investigate using buffered channel here
 		openReplies: make(map[int]chan *Message),
 	}
-	// client.conn = conn
-	// client.requests = make(chan *Message)
-	// client.openReplies = make(map[int]chan *Message)
 	conn.SetClient(client)
 
 	go client.splitReqsAndReps()
@@ -75,16 +74,24 @@ func (client *Client) Send(msg *Message) (responseChan chan *Message, err error)
 		client.openReplies[msg.RequestID] = responseChan
 		client.openRepliesMut.Unlock()
 	} else {
+		// TODO: refactor this
 		// Trace.Printf("sending reply so done with this message")
 	}
-
 	return
 }
 
-// Close unlocks a client mutex and closes the connection
+// Close ensures that client.close() is only called once
 func (client *Client) Close() {
+	client.closeOnce.Do(func() {
+		client.close()
+	})
+}
+
+func (client *Client) close() {
 	if len(client.spIdent) > 0 {
-		sp := DefaultCache.Retrieve(client.spIdent)
+		defaultCacheMut.Lock()
+		sp := defaultCache.Retrieve(client.spIdent)
+		defaultCacheMut.Unlock()
 		if sp != nil {
 			sp.client = nil
 		}
@@ -96,54 +103,60 @@ func (client *Client) Close() {
 	if client.isClosed {
 		return
 	}
+	client.closeReqChan.Do(func() {
+		close(client.requests)
+	})
 	client.closeConnection(client.conn)
 
 	// Notify wrapper service that we're dead
 	if client.service != nil {
 		client.service.RemoveClient(client)
 	}
-
-	client.isClosed = true // write race
+	client.isClosed = true
 }
 
 // closeConnection calls client.conn.Close() and sets the client.conn to nil
 func (client *Client) closeConnection(conn *Connection) {
 	if !client.conn.isClosed {
-		client.conn.Close()
+		client.conn.close()
 	}
-	client.conn = nil // race
+	client.conn = nil
 }
 
 //func (client *Client) splitReqsAndReps(grNum, clientID int) (err error) {
 func (client *Client) splitReqsAndReps() (err error) {
 	var replyChan chan *Message
 
-forLoop:
+	// TODO: need to make sure this finishes BEFORE we close client or else we have a race condition
+	// and potential panic()
+ForLoop:
 	for {
-		// Trace.Printf("Entering forLoop splitReqsAndReps")
 		select {
+		// case <-client.service.quit:
+		// break ForLoop //TODO: we should wait until all messages are received
 		case message, ok := <-client.conn.msgs: //race
 			if !ok {
 				// Trace.Printf("client.conn.msgs... CLOSED!")
-				break forLoop
+				break ForLoop
 			}
 			if message == nil {
-				continue
+				continue ForLoop
 			}
 
 			// Trace.Printf("Splitting incoming message to reqs and reps")
 
 			if message.MessageType == MessageTypeRequest {
-				// interesting things happen if there are outstanding messages
+				// TODO: bad things happen if there are outstanding messages
 				// and the client closes
 				client.requests <- message
 			} else if message.MessageType == MessageTypeReply {
 				client.openRepliesMut.Lock()
+				// TODO: this is kind of clunky maybe refactor?
 				replyChan = client.openReplies[message.RequestID]
 				if replyChan == nil {
 					// Error.Printf("got an unexpected reply for requestId: %d. Skipping.", message.RequestID)
 					client.openRepliesMut.Unlock()
-					continue
+					continue ForLoop
 				}
 
 				delete(client.openReplies, message.RequestID)
@@ -151,23 +164,22 @@ forLoop:
 
 				replyChan <- message
 			} else {
-				// Trace.Printf("Could not handle msg, it's neither req or reply. Skipping.")
-				continue
+				Warning.Printf("Could not handle msg, it's neither req or reply. Skipping.")
+				continue ForLoop
 			}
 		}
 	}
-
-	// Trace.Printf("done with SplitReqsAndReps")
-	close(client.requests)
+	// client.closeReqChan.Do(func() {
+	// 	close(client.requests)
+	// })
 	client.openRepliesMut.Lock()
 	for _, openReplyChan := range client.openReplies {
-		close(openReplyChan)
-	}
-	defer client.openRepliesMut.Unlock()
-	if !client.isClosed { //read (race)
-		client.Close()
+		close(openReplyChan) //TODO: Once
 	}
 
+	// client.openRepliesMut.Unlock()
+	close(replyChan)
+	client.Close()
 	return
 }
 

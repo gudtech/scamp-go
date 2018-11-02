@@ -1,8 +1,6 @@
 package scamp
 
 import (
-	"bytes"
-	"fmt"
 	"testing"
 )
 
@@ -13,6 +11,7 @@ func spawnRequesterTestService(t *testing.T) (service *Service) {
 		Sector:      "test",
 		ServiceSpec: "0.0.0.0:0",
 		HumanName:   "sample",
+		name:        "logger-b3/QF6hT+7tEJVVoVkvmxl8n",
 	}
 	opts := &Options{
 		SOAConfigPath:    "./../../scamp-go/fixtures/soa.conf",
@@ -54,31 +53,34 @@ func spawnRequesterTestService(t *testing.T) (service *Service) {
 	}()
 	return
 }
-func TestRequester(t *testing.T) {
-	s := spawnTestService(t)
-	msg := NewRequestMessage()
-	msg.SetEnvelope(EnvelopeJSON)
 
-	type helloResponse struct {
-		Test string `json:"test"`
-	}
-	spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
-	Info.Printf("Dialing %s", spec)
-	respMsg, err := MakeJSONRequest("main", "Logger.info", 1, msg)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+// TODO: in order to test MakeJSONRequest we will need to make the defaultCache an
+// interface so that it is mockable
+// func TestRequester(t *testing.T) {
+// 	s := spawnTestService(t)
+// 	msg := NewRequestMessage()
+// 	msg.SetEnvelope(EnvelopeJSON)
 
-	if respMsg == nil || len(respMsg.Bytes()) == 0 {
-		t.Fatalf("response message was nil")
-	}
-	expected := []byte(`{"test":"success"}`)
-	resp := bytes.TrimRight(respMsg.Bytes(), "\n")
-	if !bytes.Equal(resp, expected) {
-		Error.Printf("resp: %s", string(resp))
-		t.Fatalf("\nExpected:\t%q\nReceived:\t%q", expected, resp)
-	}
-}
+// 	type helloResponse struct {
+// 		Test string `json:"test"`
+// 	}
+// 	spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
+// 	Info.Printf("Dialing %s", spec)
+// 	respMsg, err := MakeJSONRequest("main", "Logger.info", 1, msg)
+// 	if err != nil {
+// 		t.Fatalf(err.Error())
+// 	}
+
+// 	if respMsg == nil || len(respMsg.Bytes()) == 0 {
+// 		t.Fatalf("response message was nil")
+// 	}
+// 	expected := []byte(`{"test":"success"}`)
+// 	resp := bytes.TrimRight(respMsg.Bytes(), "\n")
+// 	if !bytes.Equal(resp, expected) {
+// 		Error.Printf("resp: %s", string(resp))
+// 		t.Fatalf("\nExpected:\t%q\nReceived:\t%q", expected, resp)
+// 	}
+// }
 
 // func TestMain(m *testing.M) {
 // 	flag.Parse()

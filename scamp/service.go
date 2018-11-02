@@ -510,7 +510,7 @@ func stringToRows(input string, rowlen int) (output []string) {
 }
 
 func (s *Service) generateRandomName() {
-	if len(s.desc.name) == 0 {
+	if len(s.desc.name) > 0 {
 		return
 	}
 	randBytes := make([]byte, 18, 18)

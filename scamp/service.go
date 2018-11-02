@@ -16,11 +16,6 @@ import (
 	"time"
 )
 
-func init() {
-	initSCAMPLogger()
-	return
-}
-
 const (
 	defaultMessageTimeout  = time.Second * 120
 	defaultLivenessDirPath = "/backplane/running-services/"
@@ -28,9 +23,19 @@ const (
 	defaultPrivatePath     = "/etc/GT_private/services"
 )
 
-// DefaultCache is the default service cache
+// defaultCache is the default service cache
 // TODO: this probably shouldn't be a global variable (or exported)
-var DefaultCache *ServiceCache
+var (
+	defaultCacheMut    sync.RWMutex
+	defaultCache       *ServiceCache
+	defaultAnnounceMut sync.Mutex
+	defaultAnnouncer   *DiscoveryAnnouncer
+)
+
+func init() {
+	initSCAMPLogger()
+	return
+}
 
 // ServiceActionFunc represents a service callback
 type ServiceActionFunc func(*Message, *Client)
@@ -61,7 +66,8 @@ type Options struct {
 	LivenessFilePath string
 	// TODO: he discovery multicast IP, if this is not set the service uses the discovery.multicast_address
 	// key in the soa.conf file
-	//MultiCastIP net.IP
+	MultiCastIP   net.IP
+	MultiCastPort int
 }
 
 var defaultServiceOptions = Options{
@@ -84,14 +90,17 @@ type Service struct {
 	isRunning      bool
 	statsCloseChan chan bool
 
-	mu                  sync.Mutex
-	serveWG             sync.WaitGroup // counts active Serve goroutines for GracefulStop
-	clients             []*Client
-	cert                tls.Certificate
-	pemCert             []byte // just a copy of what was read off disk at tls cert load time
-	quit                chan struct{}
-	done                chan struct{}
-	connectionsAccepted uint64
+	mu                   sync.Mutex
+	remarshalForAnnounce bool // dirty flag that indicates announcer should Marshal service again
+	announceBytes        []byte
+	serveWG              sync.WaitGroup // counts active Serve goroutines for GracefulStop
+	clients              []*Client
+	cert                 tls.Certificate
+	pemCert              []byte // just a copy of what was read off disk at tls cert load time
+	quitOnce             sync.Once
+	quit                 chan struct{}
+	done                 chan struct{}
+	connectionsAccepted  uint64
 }
 
 // ServiceDesc contains service description fields
@@ -124,7 +133,6 @@ func (o *Options) merge() {
 			o.KeyPath = defaultServiceOptions.KeyPath
 		}
 		if len(o.LivenessFilePath) == 0 {
-			// panic("Empty LivenessFilePath: " + o.LivenessFilePath)
 			o.LivenessFilePath = defaultServiceOptions.LivenessFilePath
 		}
 		if len(o.SOAConfigPath) == 0 {
@@ -149,6 +157,13 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 	if err != nil {
 		Error.Fatalf("could not initialize scamp environment: %s", err)
 	}
+	// note we don't merge multicast address. It defaults to soa.conf if we haven't passed it
+	if opts.MultiCastIP != nil {
+		defaultConfig.testMultiCastIP = opts.MultiCastIP
+	}
+	if opts.MultiCastPort > 0 {
+		defaultConfig.testMultiCastPort = opts.MultiCastPort
+	}
 
 	cachePath, ok := DefaultConfig().Get("discovery.cache_path")
 	if !ok {
@@ -159,7 +174,7 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 	if err != nil {
 		Error.Fatalf("couldn't create service cache: %s", err)
 	}
-	DefaultCache = cache
+	defaultCache = cache
 
 	crtPath := DefaultConfig().ServiceCertPath(desc.HumanName, opts.CertPath)
 	keyPath := DefaultConfig().ServiceKeyPath(desc.HumanName, opts.KeyPath)
@@ -178,21 +193,33 @@ func NewService(desc ServiceDesc, opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// TODO: check that service.options are not called by any functions that
+	// precede this point in the code
 	service := &Service{
-		desc:    desc,
-		actions: make(map[string]*ServiceAction),
-		cert:    keypair,
-		pemCert: loadPEMCertBytes(string(crtPath)),
+		desc:                 desc,
+		actions:              make(map[string]*ServiceAction),
+		cert:                 keypair,
+		pemCert:              loadPEMCertBytes(string(crtPath)),
+		statsCloseChan:       make(chan bool),
+		quit:                 make(chan struct{}),
+		options:              *opts,
+		remarshalForAnnounce: true,
 	}
 	service.generateRandomName()
-	service.options = *opts
 
 	err = service.listen()
 	if err != nil {
 		return nil, err
 	}
-	service.statsCloseChan = make(chan bool)
+
+	if defaultAnnouncer == nil {
+		announcer, err := NewDiscoveryAnnouncer()
+		if err != nil {
+			Error.Fatal("could not create discovery announcer: ", err)
+		}
+		defaultAnnouncer = announcer
+	}
+
 	return service, nil
 }
 
@@ -239,14 +266,24 @@ func (s *Service) Register(name string, handler ServiceActionFunc) (err error) {
 
 //Run starts a scamp service serving
 func (s *Service) Run() error {
+
+	// TODO: check for available dependencies and start discoveryAnnouncer if they are available
+	// announcer, err := NewDiscoveryAnnouncer()
+	// if err != nil {
+	// 	Error.Printf("failed to create discovery announcer: %s\n", err)
+	// }
+	defaultAnnouncer.Track(s)
+	defaultAnnouncer.start()
+
 	err := s.createKubeLivenessFile(s.options.LivenessFilePath)
 	if err != nil {
 		Error.Printf("could not create liveness file: %s\n", err)
 	}
 
-	// sleep on accept failure (for backoff)
+	// delay = backoff for accept failure
 	var delay time.Duration
 
+	defer s.listener.Close()
 	for {
 		netConn, err := s.listener.Accept()
 		if err != nil {
@@ -300,14 +337,15 @@ func (s *Service) Run() error {
 		s.serveWG.Add(1)
 		go func() {
 			s.Handle(client)
+			Warning.Println("done handling this client")
 			s.serveWG.Done()
 		}()
 		//TODO: Do we need this?
 		atomic.AddUint64(&s.connectionsAccepted, 1)
 	}
-
+	Info.Println("listener done")
 	s.mu.Lock()
-	for _, client := range s.clients {
+	for _, client := range s.clients { //maybe shouldn't call this here
 		client.Close()
 	}
 	s.mu.Unlock()
@@ -316,14 +354,16 @@ func (s *Service) Run() error {
 	return nil
 }
 
-//Handle handles incoming client messages received via the cient MessageChan
+//Handle handles incoming client messages received via the client MessageChan
 func (s *Service) Handle(client *Client) {
 	var action *ServiceAction
-	//Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
-
+	// var wg sync.WaitGroup
 handlerLoop:
 	for {
 		select {
+		case <-s.quit:
+			Warning.Println("exiting handlerloop")
+			break handlerLoop
 		case msg, ok := <-client.Incoming():
 			if !ok {
 				break handlerLoop
@@ -331,16 +371,15 @@ handlerLoop:
 			action = s.actions[msg.Action]
 
 			if action != nil {
-				// Info.Printf("handling action %s\n", action.crudTags)
 				action.handler(msg, client)
 			} else {
 				Error.Printf("do not know how to handle action `%s`", msg.Action)
-
 				reply := NewMessage()
 				reply.SetMessageType(MessageTypeReply)
 				reply.SetEnvelope(EnvelopeJSON)
 				reply.SetRequestID(msg.RequestID)
-				reply.Write([]byte(`{"error": "no such action"}`))
+				reply.SetError(fmt.Sprintf("no such action %s", msg.Action))
+				// reply.Write([]byte(`{"error": "no such action"}`))
 				_, err := client.Send(reply)
 				if err != nil {
 					client.Close()
@@ -351,9 +390,11 @@ handlerLoop:
 			break handlerLoop
 		}
 	}
-
-	client.Close()
-	s.RemoveClient(client)
+	// client.Close()
+	// err := s.RemoveClient(client) //TODO check if client.Close already handles this
+	// if err != nil {
+	// 	Error.Println("could not remove client: ", err)
+	// }
 }
 
 // RemoveClient removes a client from the scamp service
@@ -374,7 +415,8 @@ func (s *Service) RemoveClient(client *Client) (err error) {
 		return fmt.Errorf("unknown client") // TODO get the client's IP?
 	}
 
-	client.Close()
+	// TODO: why are we calling Close() here? If we are removing it shouldn't it already be closed?
+	//client.Close()
 	s.clients = append(s.clients[:index], s.clients[index+1:]...)
 
 	return nil
@@ -383,13 +425,26 @@ func (s *Service) RemoveClient(client *Client) (err error) {
 // Stop closes the service's net.Listener
 // TODO: refactor
 func (s *Service) Stop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.listener != nil {
-		s.listener.Close()
-	}
 	Warning.Println("shutting down")
+	s.quitOnce.Do(func() {
+		close(s.quit)
+	})
+
+	//TODO: we need to stop announcing before we stop listening
+	// if s.listener != nil {
+	s.serveWG.Wait()
+
+	// }
+	// block here until all serving goroutines are complete
+	// s.serveWG.Wait()
+	// s.mu.Lock()
+	// defer s.mu.Unlock()
+	// defer func() {
+	// 	s.serveWG.Wait()
+	// 	s.doneOnce.Do(func() {
+	// 		close(s.done)
+	// 	})
+	// }()
 
 	err := s.removeKubeLivenessFile(s.options.LivenessFilePath)
 	if err != nil {
@@ -451,11 +506,13 @@ func stringToRows(input string, rowlen int) (output []string) {
 			}
 		}
 	}
-
 	return
 }
 
 func (s *Service) generateRandomName() {
+	if len(s.desc.name) == 0 {
+		return
+	}
 	randBytes := make([]byte, 18, 18)
 	read, err := rand.Read(randBytes)
 	if err != nil {

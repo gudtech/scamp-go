@@ -12,6 +12,7 @@ import (
 
 const retryLimit = 50
 
+// TODO: remove or protect these global variables
 type incomingMsgNo uint64
 type outgoingMsgNo uint64
 
@@ -29,6 +30,7 @@ type Connection struct {
 	isClosed       bool
 	closedMutex    sync.Mutex
 	scampDebugger  *scampDebugger
+	closeConnOnce  sync.Once
 }
 
 // DialConnection Used by Client to establish a secure connection to the remote service.
@@ -107,8 +109,6 @@ func (conn *Connection) packetReader() (err error) {
 
 PacketReaderLoop:
 	for {
-		// Trace.Printf("reading packet...")
-
 		pkt, err = ReadPacket(conn.readWriter)
 		if err != nil {
 			// Warning.Printf("Client %v, packet reader go routine %v ReadPacket error %s\n", conn.client.ID, prNum, err)
@@ -127,32 +127,29 @@ PacketReaderLoop:
 
 		err = conn.routePacket(pkt)
 		if err != nil {
-			// Trace.Printf("breaking PacketReaderLoop")
 			break PacketReaderLoop
 		}
 	}
 
-	close(conn.msgs)
+	close(conn.msgs) // TODO: sync.Once
 	return
 }
 
 func (conn *Connection) routePacket(pkt *Packet) (err error) {
 	var msg *Message
-	// Trace.Printf("routing packet...")
 	switch {
 	case pkt.packetType == HEADER:
-		// Trace.Printf("HEADER")
 
 		incomingmsgno := atomic.LoadUint64((*uint64)(&conn.incomingMsgNo))
 		if pkt.msgNo != incomingmsgno {
-			err = fmt.Errorf("out of sequence msgno: expected %d but got %d", incomingmsgno, pkt.msgNo)
+			err = fmt.Errorf("out of sequence msgNo: expected %d but got %d", incomingmsgno, pkt.msgNo)
 			Error.Printf("%s", err)
 			return err
 		}
 
 		msg = conn.pktToMsg[incomingMsgNo(pkt.msgNo)]
 		if msg != nil {
-			err = fmt.Errorf("Bad HEADER; already tracking msgno %d", pkt.msgNo)
+			err = fmt.Errorf("Bad HEADER; already tracking msgNo %d", pkt.msgNo)
 			Error.Printf("%s", err)
 			return err
 		}
@@ -215,7 +212,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 			errMessage := string(pkt.body)
 			msg.Error = errMessage
 		} else {
-			msg.Error = "There was an unkown error with the connection"
+			msg.Error = "There was an unknown error with the connection"
 		}
 		msg.Write(pkt.body)
 		conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
@@ -248,12 +245,12 @@ func (conn *Connection) Send(msg *Message) (err error) {
 		return
 	}
 
-	outgoingmsgno := atomic.LoadUint64((*uint64)(&conn.outgoingMsgNo))
+	outMsgNo := atomic.LoadUint64((*uint64)(&conn.outgoingMsgNo))
 	atomic.AddUint64((*uint64)(&conn.outgoingMsgNo), 1)
 
-	// Trace.Printf("sending msgno %d", outgoingmsgno)
+	// Trace.Printf("sending outMsgNo %d", outgoingMsgNo)
 
-	for _, pkt := range msg.toPackets(outgoingmsgno) {
+	for _, pkt := range msg.toPackets(outMsgNo) {
 		// Trace.Printf("sending pkt %d", i)
 
 		retries := 0
@@ -270,7 +267,7 @@ func (conn *Connection) Send(msg *Message) (err error) {
 				_, err := pkt.Write(conn.readWriter)
 				// TODO: should we actually blacklist this error?
 				if err != nil {
-					//temprarily
+					//temporarily
 					if strings.Contains(err.Error(), "use of closed connection") {
 						err = fmt.Errorf("connection closed")
 						break
@@ -299,15 +296,15 @@ func (conn *Connection) Send(msg *Message) (err error) {
 	return
 }
 
-func (conn *Connection) ackBytes(msgno incomingMsgNo, unackedByteCount uint64) (err error) {
-	// Trace.Printf("ACKing msg %v, unacked bytes = %v", msgno, unackedByteCount)
+func (conn *Connection) ackBytes(msgno incomingMsgNo, unAckedByteCount uint64) (err error) {
+	// Trace.Printf("ACKing msg %v, un-acknowledged bytes = %v", msgno, unAckedByteCount)
 	conn.readWriterLock.Lock()
 	defer conn.readWriterLock.Unlock()
 
 	ackPacket := Packet{
 		packetType: ACK,
 		msgNo:      uint64(msgno),
-		body:       []byte(fmt.Sprintf("%d", unackedByteCount)),
+		body:       []byte(fmt.Sprintf("%d", unAckedByteCount)),
 	}
 
 	var thisWriter io.Writer
@@ -327,24 +324,21 @@ func (conn *Connection) ackBytes(msgno incomingMsgNo, unackedByteCount uint64) (
 	return
 }
 
-// Close closes the current *Connection
-func (conn *Connection) Close() {
-	conn.closedMutex.Lock()
-	if conn.isClosed {
-		// Trace.Printf("connection already closed. skipping shutdown.")
+// close closes the current *Connection
+func (conn *Connection) close() {
+	conn.closeConnOnce.Do(func() {
+		conn.closedMutex.Lock()
+		if conn.isClosed {
+			conn.closedMutex.Unlock()
+			return
+		}
+
+		err := conn.conn.Close()
+		if err != nil {
+			Error.Println("could not close client connection: ", err)
+		}
+
+		conn.isClosed = true
 		conn.closedMutex.Unlock()
-		return
-	}
-
-	// Trace.Printf("connection is closing")
-
-	conn.conn.Close()
-	// conn.conn = nil
-
-	// conn.readWriterLock.Lock()
-	// conn.readWriter.Flush()
-	// conn.readWriterLock.Unlock()
-
-	conn.isClosed = true
-	conn.closedMutex.Unlock()
+	})
 }

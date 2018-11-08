@@ -5,9 +5,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const retryLimit = 50
@@ -42,7 +44,12 @@ func DialConnection(connspec string) (conn *Connection, err error) {
 	}
 	config.BuildNameToCertificate()
 
-	tlsConn, err := tls.Dial("tcp", connspec, config)
+	dialer := &net.Dialer{
+		Timeout: 100 * time.Millisecond,
+	}
+	// tlsConn, err := tls.Dial("tcp", connspec, config)
+	// upgraded to DialWithDialer to handle timeouts
+	tlsConn, err := tls.DialWithDialer(dialer, "tcp", connspec, config)
 	if err != nil {
 		return
 	}

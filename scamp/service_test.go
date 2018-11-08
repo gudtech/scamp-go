@@ -3,38 +3,30 @@ package scamp
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"log"
-	"net"
 	"regexp"
+	"sync"
 	"testing"
 	"time"
 )
 
 func TestServiceHandlesRequest(t *testing.T) {
 	s := spawnTestService(t)
-	spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
-	connectToTestService(t, spec)
+	// spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		connectToTestService(t, s.listener.Addr().String())
+		wg.Done()
+	}()
+	wg.Wait()
 	s.Stop()
-}
-
-func GetOutboundConnection() (net.IP, int) {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	fmt.Printf("%v:%v", localAddr.IP, localAddr.Port)
-	return localAddr.IP, localAddr.Port
 }
 
 func spawnTestService(t *testing.T) (service *Service) {
 	desc := ServiceDesc{
 		Sector:      "test",
-		ServiceSpec: "0.0.0.0:0",
-		HumanName:   "sample",
+		ServiceSpec: "0.0.0.0:50100",
+		HumanName:   "logger",
 	}
 	opts := &Options{
 		SOAConfigPath:    "./../../scamp-go/fixtures/soa.conf",
@@ -46,7 +38,9 @@ func spawnTestService(t *testing.T) (service *Service) {
 	if err != nil {
 		t.Fatalf("error creating new service: `%s`", err)
 	}
-	Info.Println("SPEC: ", fmt.Sprintf("%s:%v", service.listenerIP, service.listenerPort))
+
+	// service.desc.ServiceSpec = fmt.Sprintf("%s:%v", service.listenerIP, service.listenerPort)
+	Info.Println("SPEC: ", service.desc.ServiceSpec)
 	type helloResponse struct {
 		Test string `json:"test"`
 	}
@@ -87,7 +81,9 @@ func connectToTestService(t *testing.T, spec string) {
 	if err != nil {
 		t.Fatalf("could not connect! `%s`\n", err)
 	}
-
+	if client == nil {
+		t.Fatalf("Dial returned nil client")
+	}
 	msg := &Message{
 		RequestID:   1,
 		Action:      "helloworld.hello",
@@ -95,6 +91,7 @@ func connectToTestService(t *testing.T, spec string) {
 		Version:     1,
 		MessageType: MessageTypeRequest,
 	}
+	Info.Println("sending message")
 	responseChan, err := client.Send(msg)
 	if err != nil {
 		t.Fatalf("error initiating session: `%s`", err)
@@ -120,8 +117,8 @@ func connectToTestService(t *testing.T, spec string) {
 // 2. Marshaling `ServiceProxy` to announce format
 func TestServiceToProxyMarshal(t *testing.T) {
 	desc := ServiceDesc{
-		ServiceSpec: "0.0.0.0:30100",
-		HumanName:   "sample",
+		ServiceSpec: "0.0.0.0:30200",
+		HumanName:   "logger",
 		Sector:      "main",
 		name:        "logger-b3/QF6hT+7tEJVVoVkvmxl8n",
 	}
@@ -158,8 +155,8 @@ func TestServiceToProxyMarshal(t *testing.T) {
 
 func TestFullServiceMarshal(t *testing.T) {
 	desc := ServiceDesc{
-		ServiceSpec: "0.0.0.0:0",
-		HumanName:   "sample",
+		ServiceSpec: "0.0.0.0:51055",
+		HumanName:   "logger",
 		Sector:      "main",
 		name:        "logger-b3/QF6hT+7tEJVVoVkvmxl8n",
 	}

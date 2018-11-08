@@ -36,47 +36,46 @@ func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	return
 }
 
-func (cache *ServiceCache) disableRecordVerification() {
-	cache.verifyRecords = true
+func (c *ServiceCache) disableRecordVerification() {
+	c.verifyRecords = true
 }
 
-func (cache *ServiceCache) enableRecordVerification() {
-	cache.verifyRecords = false
+func (c *ServiceCache) enableRecordVerification() {
+	c.verifyRecords = false
 }
 
-func (cache *ServiceCache) Store(instance *serviceProxy) {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+func (c *ServiceCache) Store(instance *serviceProxy) {
+	c.cacheM.Lock()
+	defer c.cacheM.Unlock()
 
-	cache.storeNoLock(instance)
+	c.storeNoLock(instance)
 
 	return
 }
 
-func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
-	_, ok := cache.identIndex[instance.ident]
+func (c *ServiceCache) storeNoLock(instance *serviceProxy) {
+	_, ok := c.identIndex[instance.ident]
 	if !ok {
-		cache.identIndex[instance.ident] = instance
+		c.identIndex[instance.ident] = instance
 	} else {
 		// Not sure if this is a hard error yet
 		// Error.Printf("tried to store instance that was already tracked")
 		// Override existing version. Correct logic?
-		cache.identIndex[instance.ident] = instance
+		c.identIndex[instance.ident] = instance
 	}
 
 	for _, class := range instance.classes {
 		for _, action := range class.actions {
 			for _, protocol := range instance.protocols {
 				mungedName := fmt.Sprintf("%s:%s.%s~%d#%s", instance.sector, class.className, action.actionName, action.version, protocol)
-
-				serviceProxies, ok := cache.actionIndex[mungedName]
+				serviceProxies, ok := c.actionIndex[mungedName]
 				if ok {
 					serviceProxies = append(serviceProxies, instance)
 				} else {
 					serviceProxies = []*serviceProxy{instance}
 				}
 
-				cache.actionIndex[mungedName] = serviceProxies
+				c.actionIndex[mungedName] = serviceProxies
 			}
 		}
 	}
@@ -84,32 +83,32 @@ func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
 	return
 }
 
-func (cache *ServiceCache) removeNoLock(instance *serviceProxy) (err error) {
-	_, ok := cache.identIndex[instance.ident]
+func (c *ServiceCache) removeNoLock(instance *serviceProxy) (err error) {
+	_, ok := c.identIndex[instance.ident]
 	if !ok {
 		err = fmt.Errorf("tried removing an ident which was not being tracked: %s", instance.ident)
 		return
 	}
 
-	delete(cache.identIndex, instance.ident)
+	delete(c.identIndex, instance.ident)
 
 	return
 }
 
 // TODO: in a perfect world we'd do upserts to the cache
 // and sweep for stale proxy definitions.
-func (cache *ServiceCache) clearNoLock() (err error) {
-	cache.identIndex = make(map[string]*serviceProxy)
-	cache.actionIndex = make(map[string][]*serviceProxy)
+func (c *ServiceCache) clearNoLock() (err error) {
+	c.identIndex = make(map[string]*serviceProxy)
+	c.actionIndex = make(map[string][]*serviceProxy)
 
 	return
 }
 
-func (cache *ServiceCache) Retrieve(ident string) (instance *serviceProxy) {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+func (c *ServiceCache) Retrieve(ident string) (instance *serviceProxy) {
+	c.cacheM.Lock()
+	defer c.cacheM.Unlock()
 
-	instance, ok := cache.identIndex[ident]
+	instance, ok := c.identIndex[ident]
 	if !ok {
 		instance = nil
 		return
@@ -118,9 +117,9 @@ func (cache *ServiceCache) Retrieve(ident string) (instance *serviceProxy) {
 	return
 }
 
-func (cache *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
+func (c *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
 	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
-	instances = cache.actionIndex[mungedName]
+	instances = c.actionIndex[mungedName]
 	if len(instances) == 0 {
 		err = fmt.Errorf("no instances found: %s", mungedName)
 		return
@@ -128,22 +127,22 @@ func (cache *ServiceCache) SearchByAction(sector, action string, version int, en
 	return
 }
 
-func (cache *ServiceCache) Size() int {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+func (c *ServiceCache) Size() int {
+	c.cacheM.Lock()
+	defer c.cacheM.Unlock()
 
-	return len(cache.identIndex)
+	return len(c.identIndex)
 }
 
-func (cache *ServiceCache) All() (proxies []*serviceProxy) {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+func (c *ServiceCache) All() (proxies []*serviceProxy) {
+	c.cacheM.Lock()
+	defer c.cacheM.Unlock()
 
-	size := len(cache.identIndex)
+	size := len(c.identIndex)
 	proxies = make([]*serviceProxy, size)
 
 	index := 0
-	for _, proxy := range cache.identIndex {
+	for _, proxy := range c.identIndex {
 		proxies[index] = proxy
 		index++
 	}
@@ -154,26 +153,26 @@ func (cache *ServiceCache) All() (proxies []*serviceProxy) {
 var sep = []byte(`%%%`)
 var newline = []byte("\n")
 
-func (cache *ServiceCache) Refresh() (err error) {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+func (c *ServiceCache) Refresh() (err error) {
+	c.cacheM.Lock()
+	defer c.cacheM.Unlock()
 
-	stat, err := os.Stat(cache.path)
+	stat, err := os.Stat(c.path)
 	if err != nil {
 		return
 	} else if stat.IsDir() {
-		err = fmt.Errorf("cannot use cache path: `%s` is a directory", cache.path)
+		err = fmt.Errorf("cannot use cache path: `%s` is a directory", c.path)
 		return
 	}
 
-	cacheHandle, err := os.Open(cache.path)
+	cacheHandle, err := os.Open(c.path)
 	if err != nil {
 		return
 	}
 	defer cacheHandle.Close()
 
 	s := bufio.NewScanner(cacheHandle)
-	err = cache.DoScan(s)
+	err = c.DoScan(s)
 	if err != nil {
 		return
 	}
@@ -181,8 +180,8 @@ func (cache *ServiceCache) Refresh() (err error) {
 	return
 }
 
-func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
-	cache.clearNoLock()
+func (c *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
+	c.clearNoLock()
 
 	// var entries int = 0
 	// Scan through buf by lines according to this basic ABNF
@@ -243,14 +242,14 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 		// Use those extracted value to make an instance
 		serviceProxy, err := newServiceProxy(classRecordsRaw, certRaw, sigRaw)
 		if err != nil {
-			return fmt.Errorf("newServiceProxy: %s", err)
+			return fmt.Errorf("newServiceProxy err: %s", err)
 		}
 
 		// Validating is a very expensive operation in the benchmarks
-		if cache.verifyRecords {
+		if c.verifyRecords {
 			err = serviceProxy.Validate()
 			if err != nil {
-				err = cache.removeNoLock(serviceProxy)
+				err = c.removeNoLock(serviceProxy)
 				if err != nil {
 					Error.Printf("could not remove service proxy (benign on first pass, otherwise it means the service has gone to a bad state): `%s`", err)
 				}
@@ -258,7 +257,7 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 			}
 		}
 
-		cache.storeNoLock(serviceProxy)
+		c.storeNoLock(serviceProxy)
 	}
 
 	return
@@ -295,27 +294,27 @@ var MaxRetries = 10
 
 var errMaxRetriesReached = errors.New("exceeded retry limit")
 
-// Func represents functions that can be retried.
-type Func func(attempt int) (retry bool, err error)
+// // Func represents functions that can be retried.
+// type Func func(attempt int) (retry bool, err error)
 
-// Do keeps trying the function until the second argument
-// returns false, or no error is returned.
-func Do(fn Func) error {
-	var err error
-	var cont bool
-	attempt := 1
-	for {
-		cont, err = fn(attempt)
-		if !cont || err == nil {
-			break
-		}
-		attempt++
-		if attempt > MaxRetries {
-			return errMaxRetriesReached
-		}
-	}
-	return err
-}
+// // Do keeps trying the function until the second argument
+// // returns false, or no error is returned.
+// func Do(fn Func) error {
+// 	var err error
+// 	var cont bool
+// 	attempt := 1
+// 	for {
+// 		cont, err = fn(attempt)
+// 		if !cont || err == nil {
+// 			break
+// 		}
+// 		attempt++
+// 		if attempt > MaxRetries {
+// 			return errMaxRetriesReached
+// 		}
+// 	}
+// 	return err
+// }
 
 // IsMaxRetries checks whether the error is due to hitting the
 // maximum number of retries or not.

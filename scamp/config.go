@@ -9,6 +9,15 @@ import (
 	"strconv"
 )
 
+// Configer interface for Config methods
+type Configer interface {
+	Load(string) error
+	ServiceKeyPath(string, string) []byte
+	ServiceCertPath(string, string) []byte
+	Get(string) (string, bool)
+	Set(string, string)
+}
+
 // Config represents scamp config
 type Config struct {
 	// string key for easy equals, byte return for easy nil
@@ -61,25 +70,25 @@ func SetDefaultConfig(conf *Config) {
 // This function panics if the global configuration is not initialized (with `Initialize()`).
 func DefaultConfig() (conf *Config) {
 	if defaultConfig == nil {
-		panic("Global configuration defaultConfig is not initialized! Call scamp.Initialize() before using package functionality.")
+		panic("defaultConfig is not initialized! initialize config before using package functionality.")
 	}
 	return defaultConfig
 }
 
 // Load loads configuration k/v pairs from the file at the given path.
-func (conf *Config) Load(configPath string) (err error) {
+func (c *Config) Load(configPath string) (err error) {
 	file, err := os.Open(configPath)
 	if err != nil {
 		err = fmt.Errorf("couldn't read config from `%s`: %v", configPath, err)
 		return
 	}
 	scanner := bufio.NewScanner(file)
-	conf.doLoad(scanner)
+	c.doLoad(scanner)
 
 	return
 }
 
-func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
+func (c *Config) doLoad(scanner *bufio.Scanner) (err error) {
 	var read bool
 	for {
 		read = scanner.Scan()
@@ -89,7 +98,7 @@ func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
 
 		re := configLine.FindSubmatch(scanner.Bytes())
 		if re != nil {
-			conf.values[string(re[1])] = re[2]
+			c.values[string(re[1])] = re[2]
 		}
 	}
 
@@ -97,11 +106,11 @@ func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
 }
 
 // ServiceKeyPath uses the configuration to generate a path at which the key for the given service name should be found.
-func (conf *Config) ServiceKeyPath(serviceName, optPath string) []byte {
+func (c *Config) ServiceKeyPath(serviceName, optPath string) []byte {
 	if len(optPath) != 0 {
 		return []byte(fmt.Sprintf("%s/%s.key", optPath, serviceName))
 	}
-	path := conf.values[serviceName+".soa_key"]
+	path := c.values[serviceName+".soa_key"]
 	if path == nil {
 		path = []byte(fmt.Sprintf("/etc/GT_private/services/%s.key", serviceName))
 	}
@@ -109,11 +118,11 @@ func (conf *Config) ServiceKeyPath(serviceName, optPath string) []byte {
 }
 
 // ServiceCertPath uses the configuration to generate a path at which the certificate for the given service name should be found.
-func (conf *Config) ServiceCertPath(serviceName, optPath string) []byte {
+func (c *Config) ServiceCertPath(serviceName, optPath string) []byte {
 	if len(optPath) != 0 {
 		return []byte(fmt.Sprintf("%s/%s.crt", optPath, serviceName))
 	}
-	path := conf.values[serviceName+".soa_cert"]
+	path := c.values[serviceName+".soa_cert"]
 	if path == nil {
 		path = []byte(fmt.Sprintf("/etc/GT_private/services/%s.crt", serviceName))
 	}
@@ -122,26 +131,24 @@ func (conf *Config) ServiceCertPath(serviceName, optPath string) []byte {
 
 // discoveryMulticastIP returns the configured discovery address, or the default one
 // if there is no configured address (discovery.multicast_address)
-func (conf *Config) discoveryMulticastIP() (ip net.IP) {
-	if conf.testMultiCastIP != nil {
-		return conf.testMultiCastIP
+func (c *Config) discoveryMulticastIP() (ip net.IP) {
+	if c.testMultiCastIP != nil {
+		return c.testMultiCastIP
 	}
-
-	rawAddr := conf.values["discovery.multicast_address"]
+	rawAddr := c.values["discovery.multicast_address"]
 	if rawAddr != nil {
 		return net.ParseIP(string(rawAddr))
 	}
-
 	return defaultGroupIP
 }
 
 // DiscoveryMulticastPort returns the configured discovery port, or the default one
 // if there is no configured port (discovery.port)
-func (conf *Config) discoveryMulticastPort() (port int) {
-	if conf.testMultiCastPort > 0 {
-		return conf.testMultiCastPort
+func (c *Config) discoveryMulticastPort() (port int) {
+	if c.testMultiCastPort > 0 {
+		return c.testMultiCastPort
 	}
-	portBytes := conf.values["discovery.port"]
+	portBytes := c.values["discovery.port"]
 	if portBytes != nil {
 		port64, err := strconv.ParseInt(string(portBytes), 10, 0)
 		if err != nil {
@@ -153,25 +160,24 @@ func (conf *Config) discoveryMulticastPort() (port int) {
 
 		return
 	}
-
 	port = defaultGroupPort
 	return
 }
 
-func (conf *Config) localDiscoveryMulticast() bool {
-	_, ok := conf.values["discovery.local_multicast"]
+func (c *Config) localDiscoveryMulticast() bool {
+	_, ok := c.values["discovery.local_multicast"]
 	return ok
 }
 
 // Get returns the value of a given config option as a string, or false if it is not set.
-func (conf *Config) Get(key string) (value string, ok bool) {
-	valueBytes, ok := conf.values[key]
+func (c *Config) Get(key string) (value string, ok bool) {
+	valueBytes, ok := c.values[key]
 	value = string(valueBytes)
 	return
 }
 
 // Set sets the given key to the given value in the configuration
-func (conf *Config) Set(key string, value string) {
+func (c *Config) Set(key string, value string) {
 	valueBytes := []byte(value)
-	conf.values[key] = valueBytes
+	c.values[key] = valueBytes
 }

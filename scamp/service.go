@@ -273,7 +273,7 @@ func (s *Service) Run() error {
 	// 	Error.Printf("failed to create discovery announcer: %s\n", err)
 	// }
 	defaultAnnouncer.Track(s)
-	defaultAnnouncer.start()
+	defaultAnnouncer.run()
 
 	err := s.createKubeLivenessFile(s.options.LivenessFilePath)
 	if err != nil {
@@ -428,6 +428,7 @@ func (s *Service) Stop() {
 	Warning.Println("shutting down")
 	s.quitOnce.Do(func() {
 		close(s.quit)
+		defaultAnnouncer.stop()
 	})
 
 	//TODO: we need to stop announcing before we stop listening

@@ -1,6 +1,7 @@
 package scamp
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -9,8 +10,8 @@ import (
 func spawnRequesterTestService(t *testing.T) (service *Service) {
 	desc := ServiceDesc{
 		Sector:      "test",
-		ServiceSpec: "0.0.0.0:0",
-		HumanName:   "sample",
+		ServiceSpec: "0.0.0.0:30100",
+		HumanName:   "logger",
 		name:        "logger-b3/QF6hT+7tEJVVoVkvmxl8n",
 	}
 	opts := &Options{
@@ -23,12 +24,16 @@ func spawnRequesterTestService(t *testing.T) (service *Service) {
 	if err != nil {
 		t.Fatalf("error creating new service: `%s`", err)
 	}
+	defaultCache.cacheM.Lock()
+	defaultCache.verifyRecords = false
+	defaultCache.cacheM.Unlock()
 
 	type helloResponse struct {
 		Test string `json:"test"`
 	}
 
-	service.Register("helloworld.hello", func(message *Message, client *Client) {
+	service.Register("Logger.info", func(message *Message, client *Client) {
+		Info.Println("Handling client request")
 		respMsg := NewMessage()
 		if respMsg == nil {
 			t.Fatal("newMessage was nil")
@@ -56,31 +61,26 @@ func spawnRequesterTestService(t *testing.T) (service *Service) {
 
 // TODO: in order to test MakeJSONRequest we will need to make the defaultCache an
 // interface so that it is mockable
-// func TestRequester(t *testing.T) {
-// 	s := spawnTestService(t)
-// 	msg := NewRequestMessage()
-// 	msg.SetEnvelope(EnvelopeJSON)
+func TestRequester(t *testing.T) {
+	s := spawnRequesterTestService(t)
+	msg := NewRequestMessage()
+	msg.SetEnvelope(EnvelopeJSON)
+	respMsg, err := MakeJSONRequest("main", "Logger.info", 1, msg)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
-// 	type helloResponse struct {
-// 		Test string `json:"test"`
-// 	}
-// 	spec := fmt.Sprintf("%s:%v", s.listenerIP, s.listenerPort)
-// 	Info.Printf("Dialing %s", spec)
-// 	respMsg, err := MakeJSONRequest("main", "Logger.info", 1, msg)
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
-
-// 	if respMsg == nil || len(respMsg.Bytes()) == 0 {
-// 		t.Fatalf("response message was nil")
-// 	}
-// 	expected := []byte(`{"test":"success"}`)
-// 	resp := bytes.TrimRight(respMsg.Bytes(), "\n")
-// 	if !bytes.Equal(resp, expected) {
-// 		Error.Printf("resp: %s", string(resp))
-// 		t.Fatalf("\nExpected:\t%q\nReceived:\t%q", expected, resp)
-// 	}
-// }
+	if respMsg == nil || len(respMsg.Bytes()) == 0 {
+		t.Fatalf("response message was nil")
+	}
+	expected := []byte(`{"test":"success"}`)
+	resp := bytes.TrimRight(respMsg.Bytes(), "\n")
+	if !bytes.Equal(resp, expected) {
+		Error.Printf("resp: %s", string(resp))
+		t.Fatalf("\nExpected:\t%q\nReceived:\t%q", expected, resp)
+	}
+	s.Stop()
+}
 
 // func TestMain(m *testing.M) {
 // 	flag.Parse()

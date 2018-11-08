@@ -23,6 +23,7 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	err = defaultCache.Refresh()
 	defer defaultCacheMut.Unlock()
 	if err != nil {
+		Error.Printf("cache refresh err: %s\n", err)
 		return
 	}
 	//TODO: add retry logic in case service proxies are nil
@@ -47,7 +48,12 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	for _, serviceProxy := range serviceProxies {
 		if serviceProxy != nil {
 			client, err := serviceProxy.GetClient()
-			if err != nil || client == nil {
+			if err != nil {
+				Error.Printf("getClient err: %s", err)
+				continue
+			}
+			if client == nil {
+				Error.Println("client is nil")
 				continue
 			}
 

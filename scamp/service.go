@@ -1,21 +1,19 @@
 package scamp
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
-	// "encoding/json"
-	"bytes"
-	"fmt"
-	"time"
-
+	"os" // "encoding/json"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 var livenessDirPath = "/backplane/running-services/"
@@ -60,7 +58,7 @@ type Service struct {
 	connectionsAccepted uint64
 }
 
-// NewService intializes and returns pointer to a new scamp service
+// NewService initializes and returns pointer to a new scamp service
 func NewService(sector string, serviceSpec string, humanName string) (*Service, error) {
 	crtPath := DefaultConfig().ServiceCertPath(humanName)
 	keyPath := DefaultConfig().ServiceKeyPath(humanName)
@@ -388,4 +386,16 @@ func (serv *Service) removeKubeLivenessFile() error {
 		return err
 	}
 	return nil
+}
+
+func (serv *Service) getQueueDepth() int {
+	depth := 0
+	serv.clientsM.Lock()
+	defer serv.clientsM.Unlock()
+	for _, c := range serv.clients {
+		c.openRepliesLock.Lock()
+		depth += len(c.openReplies)
+		c.openRepliesLock.Unlock()
+	}
+	return depth
 }

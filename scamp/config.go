@@ -114,6 +114,35 @@ func (conf *Config) ServiceCertPath(serviceName string) (certPath []byte) {
 	return path
 }
 
+// StatsdPeerAddress returns the configured statsd peer address used for queue-depth based
+// autoscaling, or nil if there is no configured address (service.statsd_peer_address)
+func (conf *Config) StatsdPeerAddress() (ip net.IP) {
+	rawAddr := conf.values["service.statsd_peer_address"]
+	if rawAddr != nil {
+		return net.ParseIP(string(rawAddr))
+	}
+	return nil
+}
+
+// StatsdPeerPort returns the configured statsd peer port, or zero
+// if there is no configured port (service.statsd_peer_port)
+func (conf *Config) StatsdPeerPort() (port int) {
+	portBytes := conf.values["service.statsd_peer_port"]
+	defaultPort := 0
+	if portBytes != nil {
+		port64, err := strconv.ParseInt(string(portBytes), 10, 0)
+		if err != nil {
+			Error.Printf(
+				"could not parse service.statsd_peer_port `%s`. falling back to default",
+				err,
+			)
+			return defaultPort
+		}
+		return int(port64)
+	}
+	return defaultPort
+}
+
 // DiscoveryMulticastIP returns the configured discovery address, or the default one
 // if there is no configured address (discovery.multicast_address)
 func (conf *Config) DiscoveryMulticastIP() (ip net.IP) {
@@ -121,7 +150,6 @@ func (conf *Config) DiscoveryMulticastIP() (ip net.IP) {
 	if rawAddr != nil {
 		return net.ParseIP(string(rawAddr))
 	}
-
 	return defaultGroupIP
 }
 
@@ -137,7 +165,6 @@ func (conf *Config) DiscoveryMulticastPort() (port int) {
 		} else {
 			port = int(port64)
 		}
-
 		return
 	}
 

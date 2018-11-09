@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"golang.org/x/net/ipv4"
-	_ "gopkg.in/alexcesaro/statsd.v2"
 )
 
 // DiscoveryAnnouncer ... TODO: godoc
@@ -14,7 +13,10 @@ type DiscoveryAnnouncer struct {
 	services      []*Service
 	multicastConn *ipv4.PacketConn
 	multicastDest *net.UDPAddr
-	stopSig       (chan bool)
+
+	// statsdPeerConn *ipv4.PacketConn // TODO: check if this is correct
+	statsdPeerDest *net.UDPAddr // TODO: check if this is correct
+	stopSig        (chan bool)
 }
 
 // NewDiscoveryAnnouncer creates a DiscoveryAnnouncer
@@ -23,12 +25,15 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 	announcer.services = make([]*Service, 0, 0)
 	announcer.stopSig = make(chan bool)
 
+	//TODO: add multicast connection for statsd service (read from soa.conf)
 	config := DefaultConfig()
 	announcer.multicastDest = &net.UDPAddr{IP: config.DiscoveryMulticastIP(), Port: config.DiscoveryMulticastPort()}
 	announcer.multicastConn, err = localMulticastPacketConn(config)
 	if err != nil {
 		return
 	}
+
+	announcer.statsdPeerDest = &net.UDPAddr{IP: config.StatsdPeerAddress(), Port: config.StatsdPeerPort()}
 
 	return
 }
@@ -46,9 +51,8 @@ func (announcer *DiscoveryAnnouncer) Track(s *Service) {
 // AnnounceLoop runs service announceloop and runs announcer.doAnnounce() at time
 // interval configured in defaultAnnounceInterval
 // TODO: make defaultAnnounceInterval configurable in the service (rather than hardcoded in scamp)
+// TODO: noop on doAnnounce() if announce address not configured
 func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
-	// Trace.Printf("starting announcer loop")
-
 	for {
 		select {
 		case <-announcer.stopSig:
@@ -57,6 +61,11 @@ func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
 			err := announcer.doAnnounce()
 			if err != nil {
 				Error.Println(err)
+			}
+			// TODO: noop on statsd announce (sendQueueDepth()) if statsd address not configured
+			err = announcer.sendQueueDepth()
+			if err != nil {
+				Error.Println("could not send queue depth: ", err)
 			}
 		}
 
@@ -77,4 +86,45 @@ func (announcer *DiscoveryAnnouncer) doAnnounce() (err error) {
 		}
 	}
 	return
+}
+
+// sendQueueDepth sends the current state of the message queue to the statsd address configured in
+// soa.conf (service.statsd_peer_address and service.statsd_peer_port). If this is not configured in
+// soa.conf noop and do not send the packets
+// statsd packet: "queue_depth.name.sector.ident.address:depth" (depth is int)
+func (announcer *DiscoveryAnnouncer) sendQueueDepth() error {
+	// no error, just log and noop because in dev there will be no statsd peer and
+	// in production we dont; want the service to die because the address was probably
+	// missing from soa.conf
+	if announcer.statsdPeerDest == nil {
+		Warning.Println("noop on sendQueueDepth because statsdPeerDest is nil")
+		return nil
+	}
+	for _, s := range announcer.services {
+		sp := serviceAsServiceProxy(s)
+		depth := s.getQueueDepth()
+		packet := fmt.Sprintf(
+			"queue_depth.%s.%s.%s.%s:%v",
+			sp.baseIdent(),
+			sp.sector,
+			sp.ident,
+			sp.connspec,
+			depth,
+		)
+		statsdPeerAddr := fmt.Sprintf(
+			"%s:%v",
+			announcer.statsdPeerDest.IP,
+			announcer.statsdPeerDest.Port,
+		)
+		conn, err := net.Dial("udp", statsdPeerAddr)
+		if err != nil {
+			return fmt.Errorf("couldn't connect to statsd peer (%s):%s", statsdPeerAddr, err)
+		}
+		defer conn.Close()
+		_, err = conn.Write([]byte(packet))
+		if err != nil {
+			return fmt.Errorf("couldn't write to statsd peer (%s):%s", statsdPeerAddr, err)
+		}
+	}
+	return nil
 }

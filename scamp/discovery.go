@@ -105,12 +105,13 @@ func (announcer *DiscoveryAnnouncer) sendQueueDepth() error {
 		depth := s.getQueueDepth()
 		packet := fmt.Sprintf(
 			"queue_depth.%s.%s.%s.%s:%v",
-			sp.baseIdent(),
+			s.humanName,
 			sp.sector,
 			sp.ident,
 			sp.connspec,
 			depth,
 		)
+		fmt.Println(packet)
 		statsdPeerAddr := fmt.Sprintf(
 			"%s:%v",
 			announcer.statsdPeerDest.IP,

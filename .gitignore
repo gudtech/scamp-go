@@ -119,6 +119,5 @@ perl/pm_to_blib
 # node stuff
 node_modules/
 
-fixtures/
 
 vendor/

@@ -116,12 +116,12 @@ func TestFullServiceMarshal(t *testing.T) {
 	//   root repo `scamp-go` has a sibling folder called `scamp-go-workspace` where `scamp-go`
 	//   is symlinked in as such: ../scamp-go-workspace/src/github.com/gudtech/scamp-go
 	// it's crazy, I know. thanks GOPATH.
-	cert, err := tls.LoadX509KeyPair("./../../scamp-go/fixtures/sample.crt", "./../../scamp-go/fixtures/sample.key")
+	cert, err := tls.LoadX509KeyPair("./../../scamp-go/fixtures/logger.crt", "./../../scamp-go/fixtures/logger.key")
 	if err != nil {
 		t.Fatalf("could not load fixture keypair: `%s`", err)
 	}
 
-	encodedCert, err := ioutil.ReadFile("./../fixtures/sample.crt")
+	encodedCert, err := ioutil.ReadFile("./../fixtures/logger.crt")
 	if err != nil {
 		t.Fatalf("could not load fixture certificate")
 	}

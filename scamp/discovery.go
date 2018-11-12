@@ -105,7 +105,7 @@ func (announcer *DiscoveryAnnouncer) sendQueueDepth() error {
 		depth := s.getQueueDepth()
 		packet := fmt.Sprintf(
 			"queue_depth.%s.%s.%s.%s:%v",
-			s.humanName,
+			sp.baseIdent(),
 			sp.sector,
 			sp.ident,
 			sp.connspec,

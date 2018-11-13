@@ -1,0 +1,7 @@
+# soa_action:main:Logger.info.v1
+soa_action:channelmodule:SDK.inventory.invpush_transmit.v1:
+  - "soa_action:main:secproxy.http.post.v1"
+soa_action:channelmodule:SDK.order.items_returned.v1:
+  - "soa_action:main:secproxy.http.post.v1"
+soa_action:channelmodule:SDK.orderpull.order_fetch.v1:
+  - "soa_action:main:secproxy.http.post.v1"

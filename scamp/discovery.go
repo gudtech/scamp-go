@@ -94,7 +94,7 @@ func (announcer *DiscoveryAnnouncer) doAnnounce() (err error) {
 // statsd packet: "queue_depth.name.sector.ident.address:depth" (depth is int)
 func (announcer *DiscoveryAnnouncer) sendQueueDepth() error {
 	// no error, just log and noop because in dev there will be no statsd peer and
-	// in production we dont; want the service to die because the address was probably
+	// in production we don't want the service to die because the address was probably
 	// missing from soa.conf
 	if announcer.statsdPeerDest == nil {
 		Warning.Println("noop on sendQueueDepth because statsdPeerDest is nil")
@@ -111,7 +111,6 @@ func (announcer *DiscoveryAnnouncer) sendQueueDepth() error {
 			sp.connspec,
 			depth,
 		)
-		fmt.Println(packet)
 		statsdPeerAddr := fmt.Sprintf(
 			"%s:%v",
 			announcer.statsdPeerDest.IP,

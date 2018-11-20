@@ -9,17 +9,24 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"os" // "encoding/json"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 var livenessDirPath = "/backplane/running-services/"
 
 // Two minute timeout on clients
 var msgTimeout = time.Second * 120
+
+// statsdInterval defaults to 500 milliseconds
+var statsdInterval = time.Millisecond * 500
 
 // ServiceActionFunc represents a service callback
 type ServiceActionFunc func(*Message, *Client)
@@ -56,7 +63,11 @@ type Service struct {
 	// stats
 	statsCloseChan      chan bool
 	connectionsAccepted uint64
+	dependencies        Resources
+	statsStopSig        chan bool
 }
+
+type Resources []*Resource
 
 // NewService initializes and returns pointer to a new scamp service
 func NewService(sector string, serviceSpec string, humanName string) (*Service, error) {
@@ -88,32 +99,33 @@ func NewService(sector string, serviceSpec string, humanName string) (*Service, 
 // NewServiceExplicitCert intializes and returns pointer to a new scamp service,
 // with an explicitly specified certificate rather than an implicitly discovered one.
 // keypair is a TLS certificate, and pemCert is the raw bytes of an X509 certificate.
-func NewServiceExplicitCert(sector string, serviceSpec string, humanName string, keypair tls.Certificate, pemCert []byte) (serv *Service, err error) {
+func NewServiceExplicitCert(sector string, serviceSpec string, humanName string, keypair tls.Certificate, pemCert []byte) (service *Service, err error) {
 	if len(humanName) > 18 {
 		err = fmt.Errorf("name `%s` is too long, must be less than 18 bytes", humanName)
 		return
 	}
 
-	serv = new(Service)
-	serv.sector = sector
-	serv.serviceSpec = serviceSpec
-	serv.humanName = humanName
-	serv.generateRandomName()
+	service = new(Service)
+	service.sector = sector
+	service.serviceSpec = serviceSpec
+	service.humanName = humanName
+	service.generateRandomName()
 
-	serv.actions = make(map[string]*ServiceAction)
+	service.actions = make(map[string]*ServiceAction)
 
-	serv.cert = keypair
+	service.cert = keypair
 
 	// Load cert in to memory for announce packet writing
-	serv.pemCert = bytes.TrimSpace(pemCert)
+	service.pemCert = bytes.TrimSpace(pemCert)
 
 	// Finally, get ready for incoming requests
-	err = serv.listen()
+	err = service.listen()
 	if err != nil {
 		return
 	}
 
-	serv.statsCloseChan = make(chan bool)
+	service.statsCloseChan = make(chan bool)
+	service.statsStopSig = make(chan bool)
 	// go PrintStatsLoop(serv, time.Duration(15)*time.Second, serv.statsCloseChan)
 
 	// Trace.Printf("done initializing service")
@@ -163,6 +175,23 @@ func (serv *Service) Register(name string, callback ServiceActionFunc) (err erro
 	return
 }
 
+// statsdLoop broadcasts the services queue depth to the metrics server based on the default statsd
+// broadcast interval
+func (serv *Service) statsdLoop() {
+	for {
+		select {
+		case <-serv.statsStopSig:
+			return
+		default:
+			err := serv.sendQueueDepth()
+			if err != nil {
+				Error.Println("could not send queue depth: ", err)
+			}
+		}
+		time.Sleep(time.Duration(statsdInterval))
+	}
+}
+
 //Run starts a scamp service
 func (serv *Service) Run() {
 	err := serv.createKubeLivenessFile()
@@ -209,10 +238,9 @@ forLoop:
 	serv.statsCloseChan <- true
 }
 
-//Handle handles incoming client messages received via the cient MessageChan
+// Handle handles incoming client messages received via the cient MessageChan
 func (serv *Service) Handle(client *Client) {
 	var action *ServiceAction
-	//Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
 HandlerLoop:
 	for {
 		select {
@@ -223,7 +251,6 @@ HandlerLoop:
 			action = serv.actions[msg.Action]
 
 			if action != nil {
-				// Info.Printf("handling action %s\n", action.crudTags)
 				action.callback(msg, client)
 			} else {
 				Error.Printf("do not know how to handle action `%s`", msg.Action)
@@ -274,10 +301,11 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 
 // Stop closes the service's net.Listener
 func (serv *Service) Stop() {
+	fmt.Println("shutting down")
+	serv.statsStopSig <- true
 	if serv.listener != nil {
 		serv.listener.Close()
 	}
-	fmt.Println("shutting down")
 	err := serv.removeKubeLivenessFile()
 	if err != nil {
 		fmt.Println("could not remove liveness file: ", err)
@@ -360,6 +388,15 @@ func (serv *Service) generateRandomName() {
 	serv.name = string(buffer.Bytes())
 }
 
+// Resource represents a "geary" resource listed in service_deps.yml
+type Resource struct {
+	Type         string
+	Sector       string
+	Name         string
+	Version      string
+	Dependencies []*Resource
+}
+
 // TODO: we should dicuss movng the path to the liveness file to a config file (like soa.conf) or having it declared
 // when creating the service
 func (serv *Service) createKubeLivenessFile() error {
@@ -388,6 +425,52 @@ func (serv *Service) removeKubeLivenessFile() error {
 	return nil
 }
 
+// sendQueueDepth sends the current state of the message queue to the statsd address configured in
+// soa.conf (service.statsd_peer_address and service.statsd_peer_port). If this is not configured in
+// soa.conf noop and do not send the packets
+// statsd packet: "queue_depth.name.sector.ident.address:depth" (depth is int)
+func (serv *Service) sendQueueDepth() error {
+	// if statsdPeerDest is nil, just log and noop because in dev there will be no statsd peer and
+	// in production we don't want the service to die because the address was probably
+	// missing from soa.conf
+	statsdPeerDest := &net.UDPAddr{
+		IP:   defaultConfig.StatsdPeerAddress(),
+		Port: defaultConfig.StatsdPeerPort(),
+	}
+
+	if statsdPeerDest == nil {
+		Warning.Println("noop on sendQueueDepth because statsdPeerDest is nil")
+		return nil
+	}
+
+	sp := serviceAsServiceProxy(serv)
+	depth := serv.getQueueDepth()
+	packet := fmt.Sprintf(
+		"queue_depth.%s.%s.%s.%s:%v",
+		sp.baseIdent(),
+		sp.sector,
+		sp.ident,
+		sp.connspec,
+		depth,
+	)
+	statsdPeerAddr := fmt.Sprintf(
+		"%s:%v",
+		statsdPeerDest.IP,
+		statsdPeerDest.Port,
+	)
+	conn, err := net.Dial("udp", statsdPeerAddr)
+	if err != nil {
+		return fmt.Errorf("couldn't connect to statsd peer (%s):%s", statsdPeerAddr, err)
+	}
+	defer conn.Close()
+	_, err = conn.Write([]byte(packet))
+	if err != nil {
+		return fmt.Errorf("couldn't write to statsd peer (%s):%s", statsdPeerAddr, err)
+	}
+
+	return nil
+}
+
 func (serv *Service) getQueueDepth() int {
 	depth := 0
 	serv.clientsM.Lock()
@@ -398,4 +481,61 @@ func (serv *Service) getQueueDepth() int {
 		c.openRepliesLock.Unlock()
 	}
 	return depth
+}
+
+// loadDependencies reads the service_deps.yml file amd
+// noops if it is missing
+func (serv *Service) loadDependencies(path string) (r []*Resource) {
+	deps, err := ioutil.ReadFile(path)
+	if err != nil {
+		Error.Printf("couldn't read service_deps.yml: %s\n", err)
+	}
+	r, err = UnmarshalResources(deps)
+	if err != nil {
+		log.Fatalf("Unmarshal: %v", err)
+	}
+	return r
+}
+
+func UnmarshalResources(in []byte) (r []*Resource, err error) {
+	var m map[string][]string
+	if err = yaml.Unmarshal(in, &m); err == nil {
+		d := make([]*Resource, 0)
+		for k, v := range m {
+			r, err := parseResource(k)
+			if err != nil {
+				Error.Printf("parseResource err: %s\n", err)
+				continue
+			}
+			fmt.Printf("string array size is %v\n", len(v))
+			deps := make([]*Resource, 0)
+			for _, x := range v {
+				d, err := parseResource(x)
+				if err != nil {
+					Error.Printf("parseResource err: %s\n", err)
+					continue
+				}
+				deps = append(deps, d)
+			}
+			fmt.Printf("deps: %v\n", deps)
+			r.Dependencies = deps
+			d = append(d, r)
+		}
+	}
+	return
+}
+
+func parseResource(s string) (*Resource, error) {
+	// TODO: split into sections <resource.type>:<resource.sector>:<resource.name(soa action)>.<resource.version>
+	parts := strings.Split(s, ":")
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("not enough parts in string for resource")
+	}
+	r := &Resource{
+		Type:    parts[0],
+		Sector:  parts[1],
+		Name:    parts[2],
+		Version: "1", //TODO: parse version
+	}
+	return r, nil
 }

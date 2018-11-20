@@ -13,10 +13,7 @@ type DiscoveryAnnouncer struct {
 	services      []*Service
 	multicastConn *ipv4.PacketConn
 	multicastDest *net.UDPAddr
-
-	// statsdPeerConn *ipv4.PacketConn // TODO: check if this is correct
-	statsdPeerDest *net.UDPAddr // TODO: check if this is correct
-	stopSig        (chan bool)
+	stopSig       (chan bool)
 }
 
 // NewDiscoveryAnnouncer creates a DiscoveryAnnouncer
@@ -32,15 +29,12 @@ func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 	if err != nil {
 		return
 	}
-
-	announcer.statsdPeerDest = &net.UDPAddr{IP: config.StatsdPeerAddress(), Port: config.StatsdPeerPort()}
-
 	return
 }
 
 // Stop notifies stopSig channel to stop announcer
 func (announcer *DiscoveryAnnouncer) Stop() {
-	announcer.stopSig <- true
+
 }
 
 // Track indicates that announcer should track and announce service
@@ -62,13 +56,7 @@ func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
 			if err != nil {
 				Error.Println(err)
 			}
-			// TODO: noop on statsd announce (sendQueueDepth()) if statsd address not configured
-			err = announcer.sendQueueDepth()
-			if err != nil {
-				Error.Println("could not send queue depth: ", err)
-			}
 		}
-
 		time.Sleep(time.Duration(defaultAnnounceInterval) * time.Second)
 	}
 }
@@ -86,45 +74,4 @@ func (announcer *DiscoveryAnnouncer) doAnnounce() (err error) {
 		}
 	}
 	return
-}
-
-// sendQueueDepth sends the current state of the message queue to the statsd address configured in
-// soa.conf (service.statsd_peer_address and service.statsd_peer_port). If this is not configured in
-// soa.conf noop and do not send the packets
-// statsd packet: "queue_depth.name.sector.ident.address:depth" (depth is int)
-func (announcer *DiscoveryAnnouncer) sendQueueDepth() error {
-	// no error, just log and noop because in dev there will be no statsd peer and
-	// in production we don't want the service to die because the address was probably
-	// missing from soa.conf
-	if announcer.statsdPeerDest == nil {
-		Warning.Println("noop on sendQueueDepth because statsdPeerDest is nil")
-		return nil
-	}
-	for _, s := range announcer.services {
-		sp := serviceAsServiceProxy(s)
-		depth := s.getQueueDepth()
-		packet := fmt.Sprintf(
-			"queue_depth.%s.%s.%s.%s:%v",
-			sp.baseIdent(),
-			sp.sector,
-			sp.ident,
-			sp.connspec,
-			depth,
-		)
-		statsdPeerAddr := fmt.Sprintf(
-			"%s:%v",
-			announcer.statsdPeerDest.IP,
-			announcer.statsdPeerDest.Port,
-		)
-		conn, err := net.Dial("udp", statsdPeerAddr)
-		if err != nil {
-			return fmt.Errorf("couldn't connect to statsd peer (%s):%s", statsdPeerAddr, err)
-		}
-		defer conn.Close()
-		_, err = conn.Write([]byte(packet))
-		if err != nil {
-			return fmt.Errorf("couldn't write to statsd peer (%s):%s", statsdPeerAddr, err)
-		}
-	}
-	return nil
 }

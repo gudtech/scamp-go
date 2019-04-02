@@ -10,7 +10,6 @@ type VerifyAction struct {
 }
 
 func (function VerifyAction) Call(message *Message, client *Client) {
-	Info.Println("verify action called")
 	_, err := VerifyTicket(message.Ticket, function.ticketVerifyPublicKey)
 	if err != nil {
 		ReplyOnError(message, client, "verification", err)
@@ -34,7 +33,6 @@ type PrivAction struct {
 }
 
 func (function PrivAction) Call(message *Message, client *Client) {
-	Info.Println("prived action called")
 	err := function.Verify(message, client)
 	if err != nil {
 		ReplyOnError(message, client, "verification", err)
@@ -45,13 +43,11 @@ func (function PrivAction) Call(message *Message, client *Client) {
 }
 
 func (function PrivAction) Verify(message *Message, client *Client) error {
-	Info.Println("verifying priv action ticket")
 	ticket, err := VerifyTicket(message.Ticket, function.ticketVerifyPublicKey)
 	if err != nil {
 		return err
 	}
 
-	Info.Println("accumulating privs")
 	var missingPrivs []int
 	for _, priv := range function.privs {
 		found, ok := ticket.Privileges[priv]
@@ -60,7 +56,6 @@ func (function PrivAction) Verify(message *Message, client *Client) error {
 		}
 	}
 
-	Info.Printf("missing privs: %v\n", missingPrivs)
 	if len(missingPrivs) > 0 {
 		return fmt.Errorf("missing privileges: %v", missingPrivs)
 	}
@@ -98,7 +93,7 @@ func ReplyOnError(message *Message, client *Client, errorCode string, err error)
 	respMsg.SetError(err.Error())
 
 	_, clientErr := client.Send(respMsg)
-	if err != nil {
-		Error.Printf("(messageID: %v, messageAction: %v) error %s\n", message.RequestID, message.Action, clientErr)
+	if clientErr != nil {
+		Error.Printf("(messageID: %v, messageAction: %v) send error: %v\n", message.RequestID, message.Action, clientErr)
 	}
 }

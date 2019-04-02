@@ -2,13 +2,25 @@ package scamp
 
 import (
 	"io/ioutil"
+	"path/filepath"
+	"runtime"
 	"testing"
 )
 
-var pemPath = "./../fixtures/ticket_verify_public_key.pem"
+var (
+	// Get root of the project.
+	_, base, _, _ = runtime.Caller(0)
+	basePath      = filepath.Dir(base)
+	fixturesPath  = basePath + "/../fixtures"
+	pemPath       = fixturesPath + "/ticket_verify_public_key.pem"
+	dispatchPath  = fixturesPath + "/processor-dispatch.token"
+)
 
 func TestTicket(t *testing.T) {
-	good, err := ioutil.ReadFile("./../fixtures/processor-dispatch.token")
+	t.Logf("basepath: %v", basePath)
+	t.Logf("fixtures path: %v", fixturesPath)
+	t.Logf("pem path: %v", pemPath)
+	good, err := ioutil.ReadFile(dispatchPath)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

@@ -17,19 +17,19 @@ func TestTicket(t *testing.T) {
 		t.Fatalf("nil ticket")
 	}
 
-	tkt, err := verifyTicket(string(good), pemPath)
+	tkt, err := VerifyTicket(string(good), pemPath)
 	if err != nil {
 		t.Errorf("failed to verify correct ticket: %s", err)
 	}
 	t.Logf("ok %+v, %+v", tkt, err)
 
-	tkt, err = verifyTicket(string(good[:len(good)-1]), pemPath)
+	tkt, err = VerifyTicket(string(good[:len(good)-1]), pemPath)
 	if err == nil {
 		t.Errorf("bad ticket accepted")
 	}
 	t.Logf("ok (should fail) %+v, %+v", tkt, err)
 
-	tkt, err = verifyTicket(string(good[1:]), pemPath)
+	tkt, err = VerifyTicket(string(good[1:]), pemPath)
 	if err == nil {
 		t.Errorf("bad ticket accepted")
 	}

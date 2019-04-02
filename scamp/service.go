@@ -24,7 +24,16 @@ var livenessDirPath = "/backplane/running-services/"
 var msgTimeout = time.Second * 120
 
 // ServiceActionFunc represents a service callback
-type ServiceActionFunc func(*Message, *Client)
+type ServiceActionFunc interface {
+	Call(*Message, *Client)
+}
+
+type BasicActionFunc func(*Message, *Client)
+
+func (function BasicActionFunc) Call(message *Message, client *Client) {
+	Info.Printf("calling basic action func\n")
+	function(message, client)
+}
 
 // ServiceAction interface
 type ServiceAction struct {
@@ -226,7 +235,7 @@ HandlerLoop:
 
 			if action != nil {
 				// Info.Printf("handling action %s\n", action.crudTags)
-				action.callback(msg, client)
+				action.callback.Call(msg, client)
 			} else {
 				Error.Printf("do not know how to handle action `%s`", msg.Action)
 

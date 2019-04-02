@@ -161,7 +161,19 @@ func (serv *Service) listen() (err error) {
 }
 
 // Register registers a service handler callback
-func (serv *Service) Register(name string, callback ServiceActionFunc) (err error) {
+func (serv *Service) Register(name string, callback func(*Message, *Client)) (err error) {
+	return serv.BaseRegister(name, BasicActionFunc(callback))
+}
+
+func (serv *Service) RegisterWithVerification(name string, callback func(*Message, *Client), ticketVerifyPublicKey string) (err error) {
+	return serv.BaseRegister(name, WithVerification(BasicActionFunc(callback), ticketVerifyPublicKey))
+}
+
+func (serv *Service) RegisterWithPrivs(name string, callback func(*Message, *Client), privs []int, ticketVerifyPublicKey string) (err error) {
+	return serv.BaseRegister(name, WithPrivs(BasicActionFunc(callback), privs, ticketVerifyPublicKey))
+}
+
+func (serv *Service) BaseRegister(name string, callback ServiceActionFunc) (err error) {
 	if serv.isRunning {
 		err = errors.New("cannot register handlers while server is running")
 		return

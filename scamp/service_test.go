@@ -43,7 +43,7 @@ func spawnTestService(hasStopped chan bool) (service *Service) {
 		// 	return
 		// }
 		// Trace.Printf("successfully responded to hello world")
-	})
+	}, nil)
 
 	go func() {
 		service.Run()
@@ -95,8 +95,7 @@ func TestServiceToProxyMarshal(t *testing.T) {
 		sector:       "main",
 		actions:      make(map[string]*ServiceAction),
 	}
-	s.Register("Logging.info", func(_ *Message, _ *Client) {
-	})
+	s.Register("Logging.info", func(_ *Message, _ *Client) {}, nil)
 
 	serviceProxy := serviceAsServiceProxy(&s)
 	serviceProxy.timestamp = 10
@@ -138,8 +137,7 @@ func TestFullServiceMarshal(t *testing.T) {
 		pemCert:      encodedCert,
 		cert:         cert,
 	}
-	s.Register("Logging.info", func(_ *Message, _ *Client) {
-	})
+	s.Register("Logging.info", func(_ *Message, _ *Client) {}, nil)
 
 	// TODO: confirm output of marshalling the payload.
 	_, err = s.MarshalText()

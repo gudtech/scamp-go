@@ -124,3 +124,19 @@ func (ticket *Ticket) Expired() bool {
 	expiryDate := ticket.Timestamp + ticket.TTL
 	return expiryDate < time.Now().Unix()
 }
+
+func (ticket *Ticket) CheckPrivs(privs []int) error {
+	var missingPrivs []int
+	for _, priv := range privs {
+		found, ok := ticket.Privileges[priv]
+		if !found || !ok {
+			missingPrivs = append(missingPrivs, priv)
+		}
+	}
+
+	if len(missingPrivs) > 0 {
+		return fmt.Errorf("missing privileges: %v", missingPrivs)
+	}
+
+	return nil
+}

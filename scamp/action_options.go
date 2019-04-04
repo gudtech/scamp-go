@@ -1,9 +1,5 @@
 package scamp
 
-import (
-	"fmt"
-)
-
 type ActionOptions struct {
 	Verify bool
 	Privs  []int
@@ -13,7 +9,9 @@ type ActionOptions struct {
 
 func DefaultActionOptions() ActionOptions {
 	return ActionOptions{
-		Verify:                true,
+		// TODO: This should probably be defaulted to true later, but we need to fix
+		// the testrunner to send tickets on all SOA actions then.
+		Verify:                false,
 		Privs:                 []int{},
 		TicketVerifyPublicKey: "",
 	}
@@ -32,20 +30,10 @@ func (function ServiceOptionsFunc) Call(message *Message, client *Client) {
 			return
 		}
 
-		if len(function.options.Privs) > 0 {
-			var missingPrivs []int
-			for _, priv := range function.options.Privs {
-				found, ok := ticket.Privileges[priv]
-				if !found || !ok {
-					missingPrivs = append(missingPrivs, priv)
-				}
-			}
-
-			if len(missingPrivs) > 0 {
-				err = fmt.Errorf("missing privileges: %v", missingPrivs)
-				ReplyOnError(message, client, "verification", err)
-				return
-			}
+		err = ticket.CheckPrivs(function.options.Privs)
+		if err != nil {
+			ReplyOnError(message, client, "verification", err)
+			return
 		}
 	}
 

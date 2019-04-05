@@ -1,5 +1,7 @@
 package scamp
 
+// ActionOptions struct that configuration options related to ticket verification
+// which are passed to Service.Register() function
 type ActionOptions struct {
 	Verify bool
 	Privs  []int
@@ -7,6 +9,7 @@ type ActionOptions struct {
 	TicketVerifyPublicKey string
 }
 
+// DefaultActionOptions initializes and returns an ActionOptions struct with default nil values
 func DefaultActionOptions() ActionOptions {
 	return ActionOptions{
 		// TODO: This should probably be defaulted to true later, but we need to fix
@@ -17,11 +20,14 @@ func DefaultActionOptions() ActionOptions {
 	}
 }
 
+// ServiceOptionsFunc struct contains the callback and action options for registered service actions
 type ServiceOptionsFunc struct {
 	callback ServiceActionFunc
 	options  ActionOptions
 }
 
+// Call calls a registered service action and verifies scamp auth ticket and associated privs
+// if the options are not nil
 func (function ServiceOptionsFunc) Call(message *Message, client *Client) {
 	if function.options.Verify || len(function.options.Privs) > 0 {
 		ticket, err := VerifyTicket(message.Ticket, function.options.TicketVerifyPublicKey)
@@ -40,6 +46,7 @@ func (function ServiceOptionsFunc) Call(message *Message, client *Client) {
 	function.callback.Call(message, client)
 }
 
+// ReplyOnError simplifies responding to scamp requests with an error state
 func ReplyOnError(message *Message, client *Client, errorCode string, err error) {
 	if client == nil {
 		Info.Println("did not reply to client, missing client")

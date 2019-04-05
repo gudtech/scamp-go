@@ -1,8 +1,10 @@
 package scamp
 
-import "testing"
-import "bytes"
-import "bufio"
+import (
+	"bufio"
+	"bytes"
+	"testing"
+)
 
 func TestAuthorizedServiceSpec(t *testing.T) {
 	Initialize("/etc/SCAMP/soa.conf")

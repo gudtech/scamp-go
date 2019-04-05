@@ -1,21 +1,19 @@
 package scamp
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
-	// "encoding/json"
-	"bytes"
-	"fmt"
-	"time"
-
+	"os" // "encoding/json"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 var livenessDirPath = "/backplane/running-services/"
@@ -58,18 +56,15 @@ type Service struct {
 
 	clientsM sync.Mutex
 	clients  []*Client
-
-	// requests      ClientChan
-
-	cert    tls.Certificate
-	pemCert []byte // just a copy of what was read off disk at tls cert load time
+	cert     tls.Certificate
+	pemCert  []byte // just a copy of what was read off disk at tls cert load time
 
 	// stats
 	statsCloseChan      chan bool
 	connectionsAccepted uint64
 }
 
-// NewService intializes and returns pointer to a new scamp service
+// NewService initializes and returns pointer to a new scamp service
 func NewService(sector string, serviceSpec string, humanName string) (*Service, error) {
 	crtPath := DefaultConfig().ServiceCertPath(humanName)
 	keyPath := DefaultConfig().ServiceKeyPath(humanName)

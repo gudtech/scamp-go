@@ -1,5 +1,4 @@
 [![CircleCI](https://circleci.com/gh/gudtech/scamp-go.svg?style=svg)](https://circleci.com/gh/gudtech/scamp-go)
-[![Code Coverage](http://gocover.io/_badge/github.com/gudtech/scamp-go/scamp)](http://gocover.io/_badge/github.com/gudtech/scamp-go/scamp)
 SCAMP Go Lang Edition
 =====================
 

@@ -97,6 +97,10 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 
 	theRest := make([]byte, theRestSize)
 	bytesRead, err = io.ReadFull(reader, theRest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read rest of packet: %s", err)
+	}
+
 	if bytesRead != theRestSize || !bytes.Equal(theRest, []byte("END\r\n")) {
 		return nil, fmt.Errorf("packet was missing trailing bytes")
 	}

@@ -99,17 +99,20 @@ func NewService(sector string, serviceSpec string, humanName string) (*Service, 
 // NewServiceExplicitCert intializes and returns pointer to a new scamp service,
 // with an explicitly specified certificate rather than an implicitly discovered one.
 // keypair is a TLS certificate, and pemCert is the raw bytes of an X509 certificate.
-func NewServiceExplicitCert(sector string, serviceSpec string, humanName string, keypair tls.Certificate, pemCert []byte) (serv *Service, err error) {
+func NewServiceExplicitCert(sector string, serviceSpec string, humanName string, keypair tls.Certificate, pemCert []byte) (*Service, error) {
 	if len(humanName) > 18 {
-		err = fmt.Errorf("name `%s` is too long, must be less than 18 bytes", humanName)
-		return
+		err := fmt.Errorf("name `%s` is too long, must be less than 18 bytes", humanName)
+		return nil, err
 	}
 
-	serv = new(Service)
+	serv := new(Service)
 	serv.sector = sector
 	serv.serviceSpec = serviceSpec
 	serv.humanName = humanName
-	serv.generateRandomName()
+	err := serv.generateRandomName()
+	if err != nil {
+		return nil, fmt.Errorf("generate service name: %s", err)
+	}
 
 	serv.actions = make(map[string]*ServiceAction)
 
@@ -121,14 +124,14 @@ func NewServiceExplicitCert(sector string, serviceSpec string, humanName string,
 	// Finally, get ready for incoming requests
 	err = serv.listen()
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	serv.statsCloseChan = make(chan bool)
 	// go PrintStatsLoop(serv, time.Duration(15)*time.Second, serv.statsCloseChan)
 
 	// Trace.Printf("done initializing service")
-	return
+	return serv, nil
 }
 
 // TODO: port discovery and interface/IP discovery should happen here
@@ -363,12 +366,12 @@ func stringToRows(input string, rowlen int) (output []string) {
 	return
 }
 
-func (serv *Service) generateRandomName() {
+func (serv *Service) generateRandomName() error {
 	randBytes := make([]byte, 18, 18)
 	read, err := rand.Read(randBytes)
 	if err != nil {
 		err = fmt.Errorf("could not generate all rand bytes needed. only read %d of 18", read)
-		return
+		return err
 	}
 	base64RandBytes := base64.StdEncoding.EncodeToString(randBytes)
 
@@ -376,7 +379,8 @@ func (serv *Service) generateRandomName() {
 	buffer.WriteString(serv.humanName)
 	buffer.WriteString("-")
 	buffer.WriteString(base64RandBytes[0:])
-	serv.name = string(buffer.Bytes())
+	serv.name = buffer.String()
+	return nil
 }
 
 // TODO: we should dicuss movng the path to the liveness file to a config file (like soa.conf) or having it declared

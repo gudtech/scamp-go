@@ -85,7 +85,7 @@ func scampDebuggerRandomString() string {
 
 	var buffer bytes.Buffer
 	buffer.WriteString(base64RandBytes[0:])
-	return string(buffer.Bytes())
+	return buffer.String()
 }
 
 type scampDebuggerReader struct {

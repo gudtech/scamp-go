@@ -175,7 +175,7 @@ func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
 		}
 		className := classAndActionName[0:actionDotIndex]
 
-		actionName := classAndActionName[actionDotIndex+1 : len(classAndActionName)]
+		actionName := classAndActionName[actionDotIndex+1:]
 
 		newServiceProxyClass := serviceProxyClass{
 			className: className,
@@ -202,63 +202,65 @@ func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
 	return
 }
 
-func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp *serviceProxy, err error) {
-	sp = new(serviceProxy)
+func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (*serviceProxy, error) {
+	sp := new(serviceProxy)
 	sp.rawClassRecords = classRecordsRaw
 	sp.rawCert = certRaw
 	sp.rawSig = sigRaw
 	sp.protocols = make([]string, 0)
 
 	var classRecords []json.RawMessage
-	err = json.Unmarshal(classRecordsRaw, &classRecords)
+	err := json.Unmarshal(classRecordsRaw, &classRecords)
 	if err != nil {
-		return
+		return nil, err
 	}
+
 	if len(classRecords) != 9 {
 		err = fmt.Errorf("expected 9 entries in class record, got %d", len(classRecords))
+		return nil, err
 	}
 
 	// OMG, position-based, heterogenously typed values in an array suck to deal with.
 	err = json.Unmarshal(classRecords[0], &sp.version)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = json.Unmarshal(classRecords[1], &sp.ident)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = json.Unmarshal(classRecords[2], &sp.sector)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = json.Unmarshal(classRecords[3], &sp.weight)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = json.Unmarshal(classRecords[4], &sp.announceInterval)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = json.Unmarshal(classRecords[5], &sp.connspec)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	var rawProtocols []*json.RawMessage
 	err = json.Unmarshal(classRecords[6], &rawProtocols)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// Skip object-looking stuff. We only care about strings for now
 	for _, rawProtocol := range rawProtocols {
 		var tempStr string
-		err := json.Unmarshal(*rawProtocol, &tempStr)
+		err = json.Unmarshal(*rawProtocol, &tempStr)
 		if err != nil {
 
 			var extension ServiceProxyDiscoveryExtension
@@ -279,7 +281,7 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 	var rawClasses [][]json.RawMessage
 	err = json.Unmarshal(classRecords[7], &rawClasses)
 	if err != nil {
-		return
+		return nil, err
 	}
 	classes := make([]serviceProxyClass, len(rawClasses), len(rawClasses))
 	sp.classes = classes
@@ -306,6 +308,7 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 				return nil, err
 			} else if len(actionsRawMessages) != 2 && len(actionsRawMessages) != 3 {
 				err = fmt.Errorf("expected action spec to have 2 or 3 entries. got `%s` (%d)", actionsRawMessages, len(actionsRawMessages))
+				return nil, err
 			}
 
 			err = json.Unmarshal(actionsRawMessages[0], &classes[i].actions[j].actionName)
@@ -344,7 +347,7 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 	}
 
 	sp.client = nil // we connect on demand
-	return
+	return sp, nil
 }
 
 // 1) Verify signature of classRecords

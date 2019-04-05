@@ -12,7 +12,10 @@ func (ts highResTimestamp) MarshalJSON() ([]byte, error) {
 
 func getTimeOfDay() (ts highResTimestamp, err error) {
 	var tval syscall.Timeval
-	syscall.Gettimeofday(&tval)
+	err = syscall.Gettimeofday(&tval)
+	if err != nil {
+		return
+	}
 
 	f, err := strconv.ParseFloat(fmt.Sprintf("%d.%d", tval.Sec, tval.Usec), 64)
 	if err != nil {

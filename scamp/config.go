@@ -24,7 +24,6 @@ var defaultAnnounceInterval = 5
 var DefaultConfigPath = "/etc/SCAMP/soa.conf"
 
 var configLine = regexp.MustCompile(`^\s*([\S^=]+)\s*=\s*([\S]+)`)
-var globalConfig *Config
 
 var defaultGroupIP = net.IPv4(239, 63, 248, 106)
 var defaultGroupPort = 5555
@@ -79,7 +78,7 @@ func (conf *Config) Load(configPath string) (err error) {
 	return
 }
 
-func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
+func (conf *Config) doLoad(scanner *bufio.Scanner) {
 	var read bool
 	for {
 		read = scanner.Scan()
@@ -92,8 +91,6 @@ func (conf *Config) doLoad(scanner *bufio.Scanner) (err error) {
 			conf.values[string(re[1])] = re[2]
 		}
 	}
-
-	return
 }
 
 // ServiceKeyPath uses the configuration to generate a path at which the key for the given service name should be found.
@@ -133,7 +130,7 @@ func (conf *Config) DiscoveryMulticastPort() (port int) {
 		port64, err := strconv.ParseInt(string(portBytes), 10, 0)
 		if err != nil {
 			Error.Printf("could not parse discovery.port `%s`. falling back to default", err)
-			port = int(defaultGroupPort)
+			port = defaultGroupPort
 		} else {
 			port = int(port64)
 		}

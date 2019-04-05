@@ -185,8 +185,15 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 			return fmt.Errorf("not tracking message number %d", pkt.msgNo)
 		}
 
-		msg.Write(pkt.body)
-		conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
+		_, err := msg.Write(pkt.body)
+		if err != nil {
+			return fmt.Errorf("write packet body: %s", err)
+		}
+
+		err = conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
+		if err != nil {
+			return fmt.Errorf("ack packet bytes: %s", err)
+		}
 
 	case pkt.packetType == EOF:
 		// Trace.Printf("EOF")
@@ -218,8 +225,16 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 		} else {
 			msg.Error = "There was an unkown error with the connection"
 		}
-		msg.Write(pkt.body)
-		conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
+
+		_, err = msg.Write(pkt.body)
+		if err != nil {
+			return fmt.Errorf("write txerr packet body: %s", err)
+		}
+
+		err = conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
+		if err != nil {
+			return fmt.Errorf("ack txerr bytes: %s", err)
+		}
 
 		delete(conn.pktToMsg, incomingMsgNo(pkt.msgNo))
 		conn.msgs <- msg

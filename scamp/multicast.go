@@ -42,19 +42,21 @@ func localMulticastPacketConn(config *Config) (conn *ipv4.PacketConn, err error)
 	return
 }
 
-func getIPForAnnouncePacket() (ip net.IP, err error) {
+func getIPForAnnouncePacket() (net.IP, error) {
 	infs, err := net.Interfaces()
 	if err != nil {
 		Error.Printf("err: `%s`", err)
-		return
+		return nil, err
 	}
 
+	var ip net.IP
 	for _, inf := range infs {
 		if inf.Flags&net.FlagLoopback != 0 {
 			continue
 		}
 
-		addrs, err := inf.Addrs()
+		var addrs []net.Addr
+		addrs, err = inf.Addrs()
 		if err != nil {
 			return nil, err
 		}
@@ -70,6 +72,7 @@ func getIPForAnnouncePacket() (ip net.IP, err error) {
 			}
 			break
 		}
+
 		if ip != nil {
 			break
 		}
@@ -77,8 +80,8 @@ func getIPForAnnouncePacket() (ip net.IP, err error) {
 
 	if ip == nil {
 		err = fmt.Errorf("no suitables IPs found")
-		return
+		return nil, err
 	}
 
-	return
+	return ip, nil
 }

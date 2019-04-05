@@ -69,7 +69,7 @@ func doFakeDiscoveryCache(keyPath, certPath, announcePath string) {
 	if err != nil {
 		Error.Fatalf("could not read announce data from %s", announcePath)
 	}
-	announceSig, err := signSHA256([]byte(announceData), privKey)
+	announceSig, err := signSHA256(announceData, privKey)
 	if err != nil {
 		Error.Fatalf("could not sign announce data: %s", err)
 	}

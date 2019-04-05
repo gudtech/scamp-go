@@ -45,7 +45,8 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	var clients []*Client
 	for _, serviceProxy := range serviceProxies {
 		if serviceProxy != nil {
-			client, err := serviceProxy.GetClient()
+			var client *Client
+			client, err = serviceProxy.GetClient()
 			if err != nil || client == nil {
 				continue
 			}

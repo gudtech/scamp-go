@@ -29,7 +29,6 @@ type ServiceActionFunc interface {
 type BasicActionFunc func(*Message, *Client)
 
 func (function BasicActionFunc) Call(message *Message, client *Client) {
-	Info.Printf("calling basic action func\n")
 	function(message, client)
 }
 
@@ -91,7 +90,7 @@ func NewService(sector string, serviceSpec string, humanName string) (*Service, 
 	return NewServiceExplicitCert(sector, serviceSpec, humanName, keypair, pemCert)
 }
 
-// NewServiceExplicitCert intializes and returns pointer to a new scamp service,
+// NewServiceExplicitCert initializes and returns pointer to a new scamp service,
 // with an explicitly specified certificate rather than an implicitly discovered one.
 // keypair is a TLS certificate, and pemCert is the raw bytes of an X509 certificate.
 func NewServiceExplicitCert(sector string, serviceSpec string, humanName string, keypair tls.Certificate, pemCert []byte) (serv *Service, err error) {
@@ -105,24 +104,16 @@ func NewServiceExplicitCert(sector string, serviceSpec string, humanName string,
 	serv.serviceSpec = serviceSpec
 	serv.humanName = humanName
 	serv.generateRandomName()
-
 	serv.actions = make(map[string]*ServiceAction)
-
 	serv.cert = keypair
-
-	// Load cert in to memory for announce packet writing
 	serv.pemCert = bytes.TrimSpace(pemCert)
 
-	// Finally, get ready for incoming requests
 	err = serv.listen()
 	if err != nil {
 		return
 	}
 
 	serv.statsCloseChan = make(chan bool)
-	// go PrintStatsLoop(serv, time.Duration(15)*time.Second, serv.statsCloseChan)
-
-	// Trace.Printf("done initializing service")
 	return
 }
 
@@ -144,7 +135,6 @@ func (serv *Service) listen() (err error) {
 	// TODO: get listenerIP to return 127.0.0.1 or something other than '::'/nil
 	// serv.listenerIP = serv.listener.Addr().(*net.TCPAddr).IP
 	serv.listenerIP, err = getIPForAnnouncePacket()
-	// Trace.Printf("serv.listenerIP: `%s`", serv.listenerIP)
 
 	if err != nil {
 		return
@@ -188,12 +178,9 @@ forLoop:
 	for {
 		netConn, err := serv.listener.Accept()
 		if err != nil {
-			// Info.Printf("exiting service Run(): `%s`", err)
 			break forLoop
 		}
-		// Trace.Printf("accepted new connection...")
 
-		//var tlsConn (*tls.Conn) = (netConn).(*tls.Conn)
 		tlsConn := (netConn).(*tls.Conn)
 		if tlsConn == nil {
 			Error.Fatalf("could not create tlsConn")
@@ -212,8 +199,6 @@ forLoop:
 		atomic.AddUint64(&serv.connectionsAccepted, 1)
 	}
 
-	// Info.Printf("closing all registered objects")
-
 	serv.clientsM.Lock()
 	for _, client := range serv.clients {
 		client.Close()
@@ -226,7 +211,6 @@ forLoop:
 //Handle handles incoming client messages received via the cient MessageChan
 func (serv *Service) Handle(client *Client) {
 	var action *ServiceAction
-	//Info.Printf("handling client for remote connection: %s\n", client.conn.conn.RemoteAddr())
 HandlerLoop:
 	for {
 		select {
@@ -237,7 +221,6 @@ HandlerLoop:
 			action = serv.actions[msg.Action]
 
 			if action != nil {
-				// Info.Printf("handling action %s\n", action.crudTags)
 				action.callback.Call(msg, client)
 			} else {
 				Error.Printf("do not know how to handle action `%s`", msg.Action)
@@ -319,8 +302,6 @@ func (serv *Service) MarshalText() (b []byte, err error) {
 	buf.WriteString("\n\n")
 	buf.Write(serv.pemCert)
 	buf.WriteString("\n\n")
-	// buf.WriteString(sig)
-	// buf.WriteString("\n\n")
 	for _, part := range sigParts {
 		buf.WriteString(part)
 		buf.WriteString("\n")
@@ -374,7 +355,7 @@ func (serv *Service) generateRandomName() {
 	serv.name = string(buffer.Bytes())
 }
 
-// TODO: we should dicuss movng the path to the liveness file to a config file (like soa.conf) or having it declared
+// TODO: we should discuss moving the path to the liveness file to a config file (like soa.conf) or having it declared
 // when creating the service
 func (serv *Service) createKubeLivenessFile() error {
 

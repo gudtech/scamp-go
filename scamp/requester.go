@@ -24,10 +24,10 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 
-	err = DefaultCache.Refresh()
-	if err != nil {
-		return
-	}
+	//err = DefaultCache.Refresh()
+	//if err != nil {
+	//return
+	//}
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
 

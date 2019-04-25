@@ -86,7 +86,7 @@ RetryLoop:
 	for attempts := 0; attempts < MAX_RETRIES; attempts++ {
 		select {
 		case msg, ok := <-responseChan:
-			if !ok {
+			if !ok && msg == nil {
 				break RetryLoop
 			}
 
@@ -101,6 +101,11 @@ RetryLoop:
 			err = fmt.Errorf("request timed out")
 			return
 		}
+	}
+
+	if msg == nil {
+		err = fmt.Errorf("no response was found")
+		return
 	}
 
 	return

@@ -85,16 +85,16 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 RetryLoop:
 	for attempts := 0; attempts < MAX_RETRIES; attempts++ {
 		select {
-		case msg, ok := <-responseChan:
-			if !ok && msg == nil {
+		case respMsg, ok := <-responseChan:
+			if !ok && respMsg == nil {
 				break RetryLoop
 			}
 
-			if msg == nil {
+			if respMsg == nil {
 				continue RetryLoop
 			}
 
-			message = msg
+			message = respMsg
 			return
 		case <-time.After(300 * time.Second):
 			//close(responseChan)
@@ -103,7 +103,7 @@ RetryLoop:
 		}
 	}
 
-	if msg == nil {
+	if message == nil {
 		err = fmt.Errorf("no response was found")
 		return
 	}

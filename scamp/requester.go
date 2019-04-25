@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const (
+	MAX_RETRIES = 20
+)
+
 // MakeJSONRequest retreives the appropriate service proxy based on the message action, and makes a
 // JSON request.
 func MakeJSONRequest(sector, action string, version int, msg *Message) (message *Message, err error) {
@@ -78,16 +82,19 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 
-	for {
+RetryLoop:
+	for attempts := 0; attempts < MAX_RETRIES; attempts++ {
 		select {
-		case msg, ok := <-responseChan:
-			if !ok {
-				break
+		case respMsg, ok := <-responseChan:
+			if !ok && respMsg == nil {
+				break RetryLoop
 			}
-			if msg == nil {
-				break
+
+			if respMsg == nil {
+				continue RetryLoop
 			}
-			message = msg
+
+			message = respMsg
 			return
 		case <-time.After(300 * time.Second):
 			//close(responseChan)
@@ -95,4 +102,11 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 			return
 		}
 	}
+
+	if message == nil {
+		err = fmt.Errorf("no response was found")
+		return
+	}
+
+	return
 }

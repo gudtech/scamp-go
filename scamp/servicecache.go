@@ -224,7 +224,13 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 			certBuffer.Write(s.Bytes())
 			certBuffer.Write(newline)
 		}
-		certRaw = certBuffer.Bytes()[0 : len(certBuffer.Bytes())-1]
+		certBytes := certBuffer.Bytes()
+		if len(certBytes) > 0 {
+			certRaw = certBytes[0 : len(certBytes)-1]
+		} else {
+			Error.Printf("empty signature for service")
+			continue
+		}
 
 		var sigBuffer bytes.Buffer
 		for s.Scan() {
@@ -237,7 +243,13 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 			sigBuffer.Write(s.Bytes())
 			sigBuffer.Write(newline)
 		}
-		sigRaw = sigBuffer.Bytes()[0 : len(sigBuffer.Bytes())-1]
+		sigBytes := sigBuffer.Bytes()
+		if len(sigBytes) > 0 {
+			sigRaw = sigBytes[0 : len(sigBytes)-1]
+		} else {
+			Error.Printf("empty signature for service")
+			continue
+		}
 
 		// Error.Printf("`%s`", sigRaw)
 

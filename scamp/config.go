@@ -150,6 +150,14 @@ func (conf *Config) LocalDiscoveryMulticast() bool {
 	return ok
 }
 
+func (conf *Config) RunningServiceFileDirPath() (runningServiceFileDirPath []byte, err error) {
+	runningServiceFileDirPath = conf.values["service.running_service_file_dir_path"]
+	if runningServiceFileDirPath == nil {
+		err = fmt.Errorf("Running service file dir path config value not found")
+	}
+	return
+}
+
 // Get returns the value of a given config option as a string, or false if it is not set.
 func (conf *Config) Get(key string) (value string, ok bool) {
 	valueBytes, ok := conf.values[key]

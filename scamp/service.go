@@ -10,13 +10,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os" // "encoding/json"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
-
-var livenessDirPath = "/backplane/running-services/"
 
 // Two minute timeout on clients
 var msgTimeout = time.Second * 120
@@ -169,7 +168,7 @@ func (serv *Service) Register(name string, callback func(*Message, *Client), opt
 
 //Run starts a scamp service
 func (serv *Service) Run() {
-	err := serv.createKubeLivenessFile()
+	err := serv.createRunningServiceFile()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -218,6 +217,9 @@ HandlerLoop:
 			if !ok {
 				break HandlerLoop
 			}
+
+			Info.Printf("Action requested (name=%s)", msg.Action)
+
 			action = serv.actions[msg.Action]
 
 			if action != nil {
@@ -275,7 +277,7 @@ func (serv *Service) Stop() {
 		serv.listener.Close()
 	}
 	fmt.Println("shutting down")
-	err := serv.removeKubeLivenessFile()
+	err := serv.removeRunningServiceFile()
 	if err != nil {
 		fmt.Println("could not remove liveness file: ", err)
 	}
@@ -350,35 +352,53 @@ func (serv *Service) generateRandomName() {
 
 	var buffer bytes.Buffer
 	buffer.WriteString(serv.humanName)
-	buffer.WriteString("-")
+	buffer.WriteString(":")
 	buffer.WriteString(base64RandBytes[0:])
 	serv.name = string(buffer.Bytes())
 }
 
-// TODO: we should discuss moving the path to the liveness file to a config file (like soa.conf) or having it declared
-// when creating the service
-func (serv *Service) createKubeLivenessFile() error {
+func (serv *Service) createRunningServiceFile() error {
+	runningServicesDirPath, configErr := DefaultConfig().RunningServiceFileDirPath()
+	if configErr != nil {
+		return configErr
+	}
 
-	if _, err := os.Stat(livenessDirPath); os.IsNotExist(err) {
-		err = os.MkdirAll(livenessDirPath, 0755)
-		if err != nil {
-			return err
+	if _, statErr := os.Stat(string(runningServicesDirPath)); os.IsNotExist(statErr) {
+		mkdirErr := os.MkdirAll(string(runningServicesDirPath), 0755)
+		if mkdirErr != nil {
+			return mkdirErr
 		}
 	}
 
-	file, err := os.Create(livenessDirPath + serv.humanName)
-	if err != nil {
-		return err
+	runningServiceFilePath := serv.runningServiceFilePath(runningServicesDirPath)
+
+	fmt.Printf("Creating running service file: `%s`\n", runningServiceFilePath)
+	file, createErr := os.Create(serv.runningServiceFilePath(runningServicesDirPath))
+	if createErr != nil {
+		return createErr
 	}
 	defer file.Close()
 	return nil
 }
 
-func (serv *Service) removeKubeLivenessFile() error {
-	path := livenessDirPath + serv.humanName
-	err := os.Remove(path)
-	if err != nil {
-		return err
+func (serv *Service) removeRunningServiceFile() error {
+	runningServicesDirPath, configErr := DefaultConfig().RunningServiceFileDirPath()
+	if configErr != nil {
+		return configErr
+	}
+
+	runningServiceFilePath := serv.runningServiceFilePath(runningServicesDirPath)
+
+	fmt.Printf("Deleting running service file: `%s`\n", runningServiceFilePath)
+	removeErr := os.Remove(runningServiceFilePath)
+	if removeErr != nil {
+		return removeErr
 	}
 	return nil
+}
+
+func (serv *Service) runningServiceFilePath(runningServicesDirPath []byte) string {
+	name := strings.Replace(serv.name, "/", "_", -1)
+
+	return string(runningServicesDirPath) + "/" + name
 }

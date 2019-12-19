@@ -367,24 +367,35 @@ func (serv *Service) createRunningServiceFile() error {
 		}
 	}
 
-	file, err := os.Create(livenessDirPath + serv.humanName)
-	if err != nil {
-		return err
+	runningServiceFilePath := serv.runningServiceFilePath(runningServicesDirPath)
+
+	fmt.Printf("Creating running service file: `%s`\n", runningServiceFilePath)
+	file, createErr := os.Create(serv.runningServiceFilePath(runningServicesDirPath))
+	if createErr != nil {
+		return createErr
 	}
 	defer file.Close()
 	return nil
 }
 
-	path := livenessDirPath + serv.humanName
-	err := os.Remove(path)
-	if err != nil {
-		return err
 func (serv *Service) removeRunningServiceFile() error {
 	runningServicesDirPath, configErr := DefaultConfig().RunningServiceFileDirPath()
 	if configErr != nil {
 		return configErr
 	}
 
+	runningServiceFilePath := serv.runningServiceFilePath(runningServicesDirPath)
+
+	fmt.Printf("Deleting running service file: `%s`\n", runningServiceFilePath)
+	removeErr := os.Remove(runningServiceFilePath)
+	if removeErr != nil {
+		return removeErr
 	}
 	return nil
+}
+
+func (serv *Service) runningServiceFilePath(runningServicesDirPath []byte) string {
+	name := strings.Replace(serv.name, "/", "_", -1)
+
+	return string(runningServicesDirPath) + "/" + name
 }

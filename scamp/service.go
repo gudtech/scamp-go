@@ -169,7 +169,7 @@ func (serv *Service) Register(name string, callback func(*Message, *Client), opt
 
 //Run starts a scamp service
 func (serv *Service) Run() {
-	err := serv.createKubeLivenessFile()
+	err := serv.createRunningServiceFile()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -275,7 +275,7 @@ func (serv *Service) Stop() {
 		serv.listener.Close()
 	}
 	fmt.Println("shutting down")
-	err := serv.removeKubeLivenessFile()
+	err := serv.removeRunningServiceFile()
 	if err != nil {
 		fmt.Println("could not remove liveness file: ", err)
 	}
@@ -357,7 +357,7 @@ func (serv *Service) generateRandomName() {
 
 // TODO: we should discuss moving the path to the liveness file to a config file (like soa.conf) or having it declared
 // when creating the service
-func (serv *Service) createKubeLivenessFile() error {
+func (serv *Service) createRunningServiceFile() error {
 
 	if _, err := os.Stat(livenessDirPath); os.IsNotExist(err) {
 		err = os.MkdirAll(livenessDirPath, 0755)
@@ -374,11 +374,11 @@ func (serv *Service) createKubeLivenessFile() error {
 	return nil
 }
 
-func (serv *Service) removeKubeLivenessFile() error {
 	path := livenessDirPath + serv.humanName
 	err := os.Remove(path)
 	if err != nil {
 		return err
+func (serv *Service) removeRunningServiceFile() error {
 	}
 	return nil
 }

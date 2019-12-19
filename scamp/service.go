@@ -10,13 +10,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os" // "encoding/json"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
-
-var livenessDirPath = "/backplane/running-services/"
 
 // Two minute timeout on clients
 var msgTimeout = time.Second * 120
@@ -355,14 +354,16 @@ func (serv *Service) generateRandomName() {
 	serv.name = string(buffer.Bytes())
 }
 
-// TODO: we should discuss moving the path to the liveness file to a config file (like soa.conf) or having it declared
-// when creating the service
 func (serv *Service) createRunningServiceFile() error {
+	runningServicesDirPath, configErr := DefaultConfig().RunningServiceFileDirPath()
+	if configErr != nil {
+		return configErr
+	}
 
-	if _, err := os.Stat(livenessDirPath); os.IsNotExist(err) {
-		err = os.MkdirAll(livenessDirPath, 0755)
-		if err != nil {
-			return err
+	if _, statErr := os.Stat(string(runningServicesDirPath)); os.IsNotExist(statErr) {
+		mkdirErr := os.MkdirAll(string(runningServicesDirPath), 0755)
+		if mkdirErr != nil {
+			return mkdirErr
 		}
 	}
 
@@ -379,6 +380,11 @@ func (serv *Service) createRunningServiceFile() error {
 	if err != nil {
 		return err
 func (serv *Service) removeRunningServiceFile() error {
+	runningServicesDirPath, configErr := DefaultConfig().RunningServiceFileDirPath()
+	if configErr != nil {
+		return configErr
+	}
+
 	}
 	return nil
 }

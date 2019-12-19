@@ -349,7 +349,7 @@ func (serv *Service) generateRandomName() {
 
 	var buffer bytes.Buffer
 	buffer.WriteString(serv.humanName)
-	buffer.WriteString("-")
+	buffer.WriteString(":")
 	buffer.WriteString(base64RandBytes[0:])
 	serv.name = string(buffer.Bytes())
 }

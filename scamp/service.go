@@ -217,6 +217,9 @@ HandlerLoop:
 			if !ok {
 				break HandlerLoop
 			}
+
+			Info.Printf("Action requested (name=%s)", msg.Action)
+
 			action = serv.actions[msg.Action]
 
 			if action != nil {

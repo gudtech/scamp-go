@@ -39,6 +39,15 @@ func localMulticastPacketConn(config *Config) (conn *ipv4.PacketConn, err error)
 	// Trace.Printf("udpConn.LocalAddr(): %s", udpConn.LocalAddr())
 
 	conn = ipv4.NewPacketConn(udpConn)
+	// TODO: get the interface from config
+	ifEth0, err := net.InterfaceByName("eth0")
+	if err != nil {
+		Error.Printf("could not get eth0 interface")
+		return
+	} else {
+		conn.SetMulticastInterface(ifEth0)
+	}
+
 	return
 }
 

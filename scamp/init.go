@@ -7,7 +7,7 @@ import (
 var DefaultCache *CacheRefresher
 
 //Initialize performs package-level setup. This must be called before calling any other package functionality, as it sets up global configuration.
-func Initialize(configPath string, refresherOptions *RefresherOptions) (err error) {
+func Initialize(configPath string, options RefresherOptions) (err error) {
 	initSCAMPLogger()
 	err = initConfig(configPath)
 	if err != nil {
@@ -25,6 +25,6 @@ func Initialize(configPath string, refresherOptions *RefresherOptions) (err erro
 		return
 	}
 
-	DefaultCache = NewCacheRefresher(serviceCache, refresherOptions)
+	DefaultCache = NewCacheRefresher(serviceCache, options)
 	return
 }

@@ -81,6 +81,11 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 	timeout := time.After(300 * time.Second)
 RetryLoop:
 	for attempts := 0; attempts < MAX_RETRIES; attempts++ {
+		if responseChan == nil {
+			err = fmt.Errorf("response channel is nil")
+			return
+		}
+
 		select {
 		case respMsg, ok := <-responseChan:
 			if !ok && respMsg == nil {

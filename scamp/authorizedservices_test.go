@@ -7,7 +7,9 @@ import (
 )
 
 func TestAuthorizedServiceSpec(t *testing.T) {
-	Initialize("/etc/SCAMP/soa.conf")
+	Initialize("/etc/SCAMP/soa.conf", RefresherOptions{
+		Reactive: true,
+	})
 	cache := NewAuthorizedServicesCache()
 
 	reader := bytes.NewReader(testAuthorizedServices)

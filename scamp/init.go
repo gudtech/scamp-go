@@ -4,10 +4,10 @@ import (
 	"fmt"
 )
 
-var DefaultCache *ServiceCache
+var DefaultCache *CacheRefresher
 
 //Initialize performs package-level setup. This must be called before calling any other package functionality, as it sets up global configuration.
-func Initialize(configPath string) (err error) {
+func Initialize(configPath string, refresherOptions *RefresherOptions) (err error) {
 	initSCAMPLogger()
 	err = initConfig(configPath)
 	if err != nil {
@@ -20,10 +20,11 @@ func Initialize(configPath string) (err error) {
 		return
 	}
 
-	DefaultCache, err = NewServiceCache(cachePath)
+	serviceCache, err := NewServiceCache(cachePath)
 	if err != nil {
 		return
 	}
 
+	DefaultCache = NewCacheRefresher(serviceCache, refresherOptions)
 	return
 }

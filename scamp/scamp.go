@@ -29,7 +29,7 @@ func main() {
 	flag.StringVar(&fingerprintPath, "fingerprintpath", "", "path to cert to fingerprint")
 	flag.Parse()
 
-	Initialize(*gtConfigPathPtr)
+	Initialize(*gtConfigPathPtr, nil)
 
 	if (len(keyPath) == 0 || len(announcePath) == 0 || len(certPath) == 0) && (len(fingerprintPath) == 0) {
 		fmt.Printf("fingerprintpath: %s\n", fingerprintPath)

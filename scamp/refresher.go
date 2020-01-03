@@ -16,7 +16,8 @@ type CacheRefresher struct {
 	running int32
 	due     *time.Ticker
 
-	options RefresherOptions
+	initialRefresh bool
+	options        RefresherOptions
 }
 
 type RefresherOptions struct {
@@ -65,7 +66,13 @@ func (refresher *CacheRefresher) Run(ctx context.Context) {
 	go func() {
 		defer atomic.AddInt32(&refresher.running, -1)
 
-	RefreshLoop:
+		err := refresher.cache.Refresh()
+		if err != nil {
+			Error.Printf("refresh cache: %v", err)
+		}
+
+		refresher.initialRefresh = true
+
 		for {
 			select {
 			case <-refresher.context.Done():
@@ -73,13 +80,18 @@ func (refresher *CacheRefresher) Run(ctx context.Context) {
 			case <-refresher.due.C:
 			}
 
-			err := refresher.cache.Refresh()
-			if err != nil {
-				Error.Printf("refresh cache: %v", err)
-				continue RefreshLoop
-			}
+			refresher.markRefresh()
 		}
 	}()
+}
+
+func (refresher *CacheRefresher) markRefresh() {
+	err := refresher.cache.Refresh()
+	if err != nil {
+		Error.Printf("refresh cache: %v", err)
+	}
+
+	refresher.initialRefresh = true
 }
 
 func (refresher *CacheRefresher) Running() bool {
@@ -100,6 +112,10 @@ func (refresher *CacheRefresher) Stop() {
 }
 
 func (refresher *CacheRefresher) Due() bool {
+	if refresher.initialRefresh {
+		return true
+	}
+
 	select {
 	case <-refresher.due.C:
 		return true
@@ -110,11 +126,7 @@ func (refresher *CacheRefresher) Due() bool {
 
 func (refresher *CacheRefresher) ReactiveRefresh() {
 	if refresher.Reactive() && refresher.Due() {
-		err := refresher.Refresh()
-		if err != nil {
-			Error.Printf("refresh cache: %v", err)
-			return
-		}
+		refresher.markRefresh()
 	}
 }
 

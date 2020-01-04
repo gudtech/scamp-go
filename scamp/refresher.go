@@ -35,12 +35,13 @@ func NewCacheRefresher(cache *ServiceCache, options RefresherOptions) *CacheRefr
 	}
 
 	return &CacheRefresher{
-		lock:    sync.RWMutex{},
-		cache:   cache,
-		cancel:  nil,
-		context: nil,
-		running: 0,
-		due:     time.NewTicker(waitDuration),
+		lock:           sync.RWMutex{},
+		cache:          cache,
+		cancel:         nil,
+		context:        nil,
+		running:        0,
+		due:            time.NewTicker(waitDuration),
+		initialRefresh: false,
 
 		options: options,
 	}
@@ -112,7 +113,7 @@ func (refresher *CacheRefresher) Stop() {
 }
 
 func (refresher *CacheRefresher) Due() bool {
-	if refresher.initialRefresh {
+	if !refresher.initialRefresh {
 		return true
 	}
 

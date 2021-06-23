@@ -1,10 +1,10 @@
 package scamp
 
 import (
-	"testing"
-	"bytes"
 	"bufio"
+	"bytes"
 	"fmt"
+	"testing"
 )
 
 func TestReadHeaderPacketOK(t *testing.T) {
@@ -159,7 +159,7 @@ func TestWriteHeaderPacket(t *testing.T) {
 		},
 		body: []byte(""),
 	}
-	expected := []byte("HEADER 0 127\r\n{\"action\":\"hello.helloworld\",\"envelope\":\"json\",\"request_id\":1,\"client_id\":2,\"ticket\":\"\",\"identifying_token\":\"\",\"type\":\"request\",\"version\":1}\nEND\r\n")
+	expected := []byte("HEADER 0 141\r\n{\"action\":\"hello.helloworld\",\"envelope\":\"json\",\"request_id\":1,\"client_id\":2,\"ticket\":\"\",\"identifying_token\":\"\",\"type\":\"request\",\"version\":1}\nEND\r\n")
 	buf := new(bytes.Buffer)
 	bytesWritten, err := packet.Write(buf)
 	if err != nil {

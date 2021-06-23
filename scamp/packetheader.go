@@ -1,10 +1,12 @@
 package scamp
 
-import "io"
-import "encoding/json"
-
-import "fmt"
-import "bytes"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"strconv"
+)
 
 /******
   ENVELOPE FORMAT
@@ -27,14 +29,17 @@ type PacketHeader struct {
 	Error            string         `json:"error,omitempty"`      // reply
 	ErrorCode        string         `json:"error_code,omitempty"` // reply
 	RequestID        int            `json:"request_id"`           // both
+	ClientID         flexInt        `json:"client_id"`            // both
 	Ticket           string         `json:"ticket"`               // request
 	IdentifyingToken string         `json:"identifying_token"`
 	MessageType      messageType    `json:"type"`    // both
 	Version          int            `json:"version"` // request
 }
 
-var envelopeJSONBytes = []byte(`"json"`)
-var envelopeJSONStoreBytes = []byte(`"jsonstore"`)
+var (
+	envelopeJSONBytes      = []byte(`"json"`)
+	envelopeJSONStoreBytes = []byte(`"jsonstore"`)
+)
 
 func (envFormat envelopeFormat) MarshalJSON() (retval []byte, err error) {
 	switch envFormat {
@@ -60,6 +65,32 @@ func (envFormat *envelopeFormat) UnmarshalJSON(incoming []byte) error {
 	return nil
 }
 
+// flexInt used for unmarshalling data, which may be a JSON string, or int, into a golang int
+type flexInt int
+
+func (value *flexInt) UnmarshalJSON(data []byte) error {
+	intValue, stringValue := 0, ""
+
+	if err := json.Unmarshal(data, &stringValue); err == nil {
+		v, err := strconv.Atoi(stringValue)
+		if err != nil {
+			return fmt.Errorf("Could not parse string `\"%s\"` as int value", stringValue)
+		}
+
+		*value = flexInt(v)
+
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &intValue); err == nil {
+		*value = flexInt(intValue)
+
+		return nil
+	}
+
+	return fmt.Errorf("Could not parse data `%s` as int value", data)
+}
+
 /******
   MESSAGE TYPE
 ******/
@@ -74,8 +105,10 @@ const (
 	MessageTypeReply
 )
 
-var requestBytes = []byte(`"request"`)
-var replyBytes = []byte(`"reply"`)
+var (
+	requestBytes = []byte(`"request"`)
+	replyBytes   = []byte(`"reply"`)
+)
 
 func (messageType messageType) MarshalJSON() (retval []byte, err error) {
 	switch messageType {

@@ -10,6 +10,7 @@ type Message struct {
 	Action           string
 	Envelope         envelopeFormat
 	RequestID        int // TODO: how do RequestID's fit in again? NOTE: from (SCAMP repo) -"Set to 18 random base64 bytes"
+	ClientID         int
 	Version          int
 	MessageType      messageType
 	packets          []*Packet
@@ -65,6 +66,10 @@ func (msg *Message) SetRequestID(requestID int) {
 	msg.RequestID = requestID
 }
 
+func (msg *Message) SetClientID(clientID int) {
+	msg.ClientID = clientID
+}
+
 // SetTicket sets the auth ticket for the message
 func (msg *Message) SetTicket(ticket string) {
 	msg.Ticket = ticket
@@ -93,6 +98,10 @@ func (msg *Message) GetError() (err string) {
 // GetErrorCode returns msg.ErrorCode
 func (msg *Message) GetErrorCode() (errCode string) {
 	return msg.ErrorCode
+}
+
+func (msg *Message) GetClientID() (clientID int) {
+	return msg.ClientID
 }
 
 // GetTicket returns msg.Ticket
@@ -163,6 +172,7 @@ func (msg *Message) toPackets(msgNo uint64) []*Packet {
 		Envelope:         msg.Envelope,
 		Version:          msg.Version,
 		RequestID:        msg.RequestID, // TODO: nope, can't do this
+		ClientID:         flexInt(msg.ClientID),
 		MessageType:      msg.MessageType,
 		Error:            msg.Error,
 		ErrorCode:        msg.ErrorCode,

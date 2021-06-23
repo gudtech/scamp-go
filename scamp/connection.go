@@ -5,14 +5,15 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-
 	"strings"
 	"sync"
 	"sync/atomic"
 )
 
-type incomingMsgNo uint64
-type outgoingMsgNo uint64
+type (
+	incomingMsgNo uint64
+	outgoingMsgNo uint64
+)
 
 // Connection a scamp connection
 type Connection struct {
@@ -166,6 +167,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 		msg.SetVersion(pkt.packetHeader.Version)
 		msg.SetMessageType(pkt.packetHeader.MessageType)
 		msg.SetRequestID(pkt.packetHeader.RequestID)
+		msg.SetClientID(int(pkt.packetHeader.ClientID))
 		msg.SetError(pkt.packetHeader.Error)
 		msg.SetErrorCode(pkt.packetHeader.ErrorCode)
 		msg.SetTicket(pkt.packetHeader.Ticket)
@@ -210,7 +212,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 			Error.Printf("err: `%s`", err)
 			return
 		}
-		//get the error
+		// get the error
 		if len(pkt.body) > 0 {
 			// Trace.Printf("getting error from packet body: %s", pkt.body)
 			errMessage := string(pkt.body)
@@ -273,12 +275,12 @@ func (conn *Connection) Send(msg *Message) (err error) {
 				_, err := pkt.Write(conn.readWriter)
 				// TODO: should we actually blacklist this error?
 				if err != nil {
-					//temprarily
+					// temprarily
 					if strings.Contains(err.Error(), "use of closed connection") {
 						err = fmt.Errorf("connection closed")
 						break
 					}
-					//TODO: attempt to reconnect
+					// TODO: attempt to reconnect
 					if strings.Contains(err.Error(), "broken pipe") {
 						err = fmt.Errorf("connection closed: %s", err)
 						break

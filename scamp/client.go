@@ -1,6 +1,7 @@
 package scamp
 
 import (
+	"math/rand"
 	"sync"
 )
 
@@ -16,7 +17,6 @@ type Client struct {
 	isClosed        bool
 	closedM         sync.Mutex
 	sendM           sync.Mutex
-	nextRequestID   int
 	spIdent         string
 }
 
@@ -70,8 +70,7 @@ func (client *Client) Send(msg *Message) (responseChan chan *Message, err error)
 	client.sendM.Lock()
 	defer client.sendM.Unlock()
 
-	client.nextRequestID++
-	msg.RequestID = client.nextRequestID
+	msg.RequestID = rand.Intn(10000)
 	err = client.conn.Send(msg)
 	if err != nil {
 		// Trace.Printf("SCAMP send error: %s", err)
@@ -129,7 +128,7 @@ func (client *Client) closeConnection(conn *Connection) {
 	client.conn = nil
 }
 
-//func (client *Client) splitReqsAndReps(grNum, clientID int) (err error) {
+// func (client *Client) splitReqsAndReps(grNum, clientID int) (err error) {
 func (client *Client) splitReqsAndReps() (err error) {
 	var replyChan chan *Message
 

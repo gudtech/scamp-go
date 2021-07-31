@@ -25,7 +25,7 @@ func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	cache.actionIndex = make(map[string][]*serviceProxy)
 	cache.verifyRecords = true
 
-	//moving this here for now
+	// moving this here for now
 	err = cache.Refresh()
 	if err != nil {
 		return
@@ -152,8 +152,10 @@ func (cache *ServiceCache) All() (proxies []*serviceProxy) {
 	return
 }
 
-var sep = []byte(`%%%`)
-var newline = []byte("\n")
+var (
+	sep     = []byte(`%%%`)
+	newline = []byte("\n")
+)
 
 func (cache *ServiceCache) Refresh() (err error) {
 	cache.cacheM.Lock()
@@ -277,8 +279,10 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 	return
 }
 
-var startCert = []byte(`-----BEGIN CERTIFICATE-----`)
-var endCert = []byte(`-----END CERTIFICATE-----`)
+var (
+	startCert = []byte(`-----BEGIN CERTIFICATE-----`)
+	endCert   = []byte(`-----END CERTIFICATE-----`)
+)
 
 func scanCertficates(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	var i int

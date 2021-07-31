@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -65,7 +66,7 @@ func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
 	for _, class := range instance.classes {
 		for _, action := range class.actions {
 			for _, protocol := range instance.protocols {
-				mungedName := fmt.Sprintf("%s:%s.%s~%d#%s", instance.sector, class.className, action.actionName, action.version, protocol)
+				mungedName := strings.ToLower(fmt.Sprintf("%s:%s.%s~%d#%s", instance.sector, class.className, action.actionName, action.version, protocol))
 
 				serviceProxies, ok := cache.actionIndex[mungedName]
 				if ok {
@@ -120,7 +121,7 @@ func (cache *ServiceCache) SearchByAction(sector, action string, version int, en
 	cache.cacheM.Lock()
 	defer cache.cacheM.Unlock()
 
-	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
+	mungedName := strings.ToLower(fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope))
 	instances = cache.actionIndex[mungedName]
 	if len(instances) == 0 {
 		err = fmt.Errorf("no instances found of %s", mungedName)

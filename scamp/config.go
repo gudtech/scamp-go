@@ -23,11 +23,15 @@ var defaultAnnounceInterval = 5
 // DefaultConfigPath is the path at which the library will, by default, look for its configuration.
 var DefaultConfigPath = "/etc/SCAMP/soa.conf"
 
-var configLine = regexp.MustCompile(`^\s*([\S^=]+)\s*=\s*([\S]+)`)
-var globalConfig *Config
+var (
+	configLine   = regexp.MustCompile(`^\s*([\S^=]+)\s*=\s*([\S]+)`)
+	globalConfig *Config
+)
 
-var defaultGroupIP = net.IPv4(239, 63, 248, 106)
-var defaultGroupPort = 5555
+var (
+	defaultGroupIP   = net.IPv4(239, 63, 248, 106)
+	defaultGroupPort = 5555
+)
 
 func initConfig(configPath string) (err error) {
 	defaultConfig = NewConfig()

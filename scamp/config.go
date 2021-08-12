@@ -18,7 +18,10 @@ type Config struct {
 // TODO: Will I regret using such a common name as a global variable?
 var defaultConfig *Config
 
-var defaultAnnounceInterval = 5
+var (
+	defaultAnnounceInterval = 5
+	defaultLogLevel         = 2
+)
 
 // DefaultConfigPath is the path at which the library will, by default, look for its configuration.
 var DefaultConfigPath = "/etc/SCAMP/soa.conf"
@@ -68,6 +71,21 @@ func DefaultConfig() (conf *Config) {
 		panic("Global configuration defaultConfig is not initialized! Call scamp.Initialize() before using package functionality.")
 	}
 	return defaultConfig
+}
+
+func LogLevel() int {
+	valueString, ok := DefaultConfig().Get("log.level")
+	if !ok {
+		return defaultLogLevel
+	}
+
+	value, err := strconv.Atoi(valueString)
+	if err != nil {
+		Error.Printf("Could not parse log.level value `%s` as int: %s", valueString, err)
+		return defaultLogLevel
+	}
+
+	return value
 }
 
 // Load loads configuration k/v pairs from the file at the given path.
@@ -160,20 +178,6 @@ func (conf *Config) RunningServiceFileDirPath() (runningServiceFileDirPath []byt
 		err = fmt.Errorf("Running service file dir path config value not found")
 	}
 	return
-}
-
-func (conf *Config) LogLevel() int {
-	valueBytes, ok := conf.values["log.level"]
-	if !ok {
-		return 1
-	}
-	value, err := strconv.Atoi(string(valueBytes))
-	if err != nil {
-		Error.Printf("Could not parse log.level value `%s` as int: %s", string(valueBytes), err)
-		return 1
-	}
-
-	return value
 }
 
 // Get returns the value of a given config option as a string, or false if it is not set.

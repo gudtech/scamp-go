@@ -24,10 +24,6 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 
-	err = DefaultCache.Refresh()
-	if err != nil {
-		return
-	}
 	//TODO: add retry logic in case service proxies are nil
 	var serviceProxies []*serviceProxy
 
@@ -82,8 +78,14 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 
+	timeout := time.After(300 * time.Second)
 RetryLoop:
 	for attempts := 0; attempts < MAX_RETRIES; attempts++ {
+		if responseChan == nil {
+			err = fmt.Errorf("response channel is nil")
+			return
+		}
+
 		select {
 		case respMsg, ok := <-responseChan:
 			if !ok && respMsg == nil {
@@ -96,7 +98,7 @@ RetryLoop:
 
 			message = respMsg
 			return
-		case <-time.After(300 * time.Second):
+		case <-timeout:
 			//close(responseChan)
 			err = fmt.Errorf("request timed out")
 			return

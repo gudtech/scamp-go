@@ -162,6 +162,20 @@ func (conf *Config) RunningServiceFileDirPath() (runningServiceFileDirPath []byt
 	return
 }
 
+func (conf *Config) LogLevel() int {
+	valueBytes, ok := conf.values["log.level"]
+	if !ok {
+		return 1
+	}
+	value, err := strconv.Atoi(string(valueBytes))
+	if err != nil {
+		Error.Printf("Could not parse log.level value `%s` as int: %s", string(valueBytes), err)
+		return 1
+	}
+
+	return value
+}
+
 // Get returns the value of a given config option as a string, or false if it is not set.
 func (conf *Config) Get(key string) (value string, ok bool) {
 	valueBytes, ok := conf.values[key]

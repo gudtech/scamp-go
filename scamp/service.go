@@ -205,6 +205,12 @@ forLoop:
 	serv.clientsM.Unlock()
 
 	serv.statsCloseChan <- true
+
+	err = serv.removeRunningServiceFile()
+	if err != nil {
+		fmt.Println("could not remove liveness file: ", err)
+	}
+	fmt.Println("shutdown done")
 }
 
 // Handle handles incoming client messages received via the cient MessageChan
@@ -282,11 +288,6 @@ func (serv *Service) Stop() {
 		serv.listener.Close()
 	}
 	fmt.Println("shutting down")
-	err := serv.removeRunningServiceFile()
-	if err != nil {
-		fmt.Println("could not remove liveness file: ", err)
-	}
-	fmt.Println("shutdown done")
 }
 
 // MarshalText serializes a scamp service

@@ -172,6 +172,37 @@ func (conf *Config) LocalDiscoveryMulticast() bool {
 	return ok
 }
 
+// LocalDiscoveryMulticastIP returns the configured discovery address, or the default one
+// if there is no configured address (discovery.multicast_address)
+func (conf *Config) LocalDiscoveryMulticastIP() (ip net.IP) {
+	rawAddr := conf.values["discovery.local_multicast_address"]
+	if rawAddr != nil {
+		return net.ParseIP(string(rawAddr))
+	}
+
+	return defaultGroupIP
+}
+
+// LocalDiscoveryMulticastPort returns the configured discovery port, or the default one
+// if there is no configured port (discovery.local_port)
+func (conf *Config) LocalDiscoveryMulticastPort() (port int) {
+	portBytes := conf.values["discovery.local_port"]
+	if portBytes != nil {
+		port64, err := strconv.ParseInt(string(portBytes), 10, 0)
+		if err != nil {
+			Error.Printf("could not parse discovery.local_port `%s`. falling back to default", err)
+			port = int(defaultGroupPort)
+		} else {
+			port = int(port64)
+		}
+
+		return
+	}
+
+	port = defaultGroupPort
+	return
+}
+
 func (conf *Config) RunningServiceFileDirPath() (runningServiceFileDirPath []byte, err error) {
 	runningServiceFileDirPath = conf.values["service.running_service_file_dir_path"]
 	if runningServiceFileDirPath == nil {

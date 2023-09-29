@@ -1,7 +1,9 @@
 package scamp
 
-import "fmt"
-import "net"
+import (
+	"fmt"
+	"net"
+)
 
 import "golang.org/x/net/ipv4"
 
@@ -26,8 +28,8 @@ func localMulticastPacketConn(config *Config) (conn *ipv4.PacketConn, err error)
 	localMulticastSpec := "127.0.0.1:"
 
 	if config.LocalDiscoveryMulticast() {
-		addr := config.DiscoveryMulticastIP()
-		port := config.DiscoveryMulticastPort()
+		addr := config.LocalDiscoveryMulticastIP()
+		port := config.LocalDiscoveryMulticastPort()
 		localMulticastSpec = fmt.Sprintf("%s:%d", addr, port)
 	}
 

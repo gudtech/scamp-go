@@ -12,7 +12,7 @@ import (
 
 type ServiceCache struct {
 	path          string
-	cacheM        sync.Mutex
+	cacheM        sync.RWMutex
 	identIndex    map[string]*serviceProxy
 	actionIndex   map[string][]*serviceProxy
 	verifyRecords bool
@@ -50,6 +50,16 @@ func (cache *ServiceCache) Store(instance *serviceProxy) {
 	cache.storeNoLock(instance)
 
 	return
+}
+
+func (cache *ServiceCache) ActionList() []string {
+	cache.cacheM.RLock()
+	defer cache.cacheM.RUnlock()
+	actions := []string{}
+	for action := range cache.actionIndex {
+		actions = append(actions, action)
+	}
+	return actions
 }
 
 func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
@@ -118,8 +128,8 @@ func (cache *ServiceCache) Retrieve(ident string) (instance *serviceProxy) {
 }
 
 func (cache *ServiceCache) SearchByAction(sector, action string, version int, envelope string) (instances []*serviceProxy, err error) {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+	cache.cacheM.RLock()
+	defer cache.cacheM.RUnlock()
 
 	mungedName := strings.ToLower(fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope))
 	instances = cache.actionIndex[mungedName]
@@ -131,15 +141,15 @@ func (cache *ServiceCache) SearchByAction(sector, action string, version int, en
 }
 
 func (cache *ServiceCache) Size() int {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+	cache.cacheM.RLock()
+	defer cache.cacheM.RUnlock()
 
 	return len(cache.identIndex)
 }
 
 func (cache *ServiceCache) All() (proxies []*serviceProxy) {
-	cache.cacheM.Lock()
-	defer cache.cacheM.Unlock()
+	cache.cacheM.RLock()
+	defer cache.cacheM.RUnlock()
 
 	size := len(cache.identIndex)
 	proxies = make([]*serviceProxy, size)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -25,7 +26,7 @@ func NewServiceCache(path string) (cache *ServiceCache, err error) {
 	cache.actionIndex = make(map[string][]*serviceProxy)
 	cache.verifyRecords = true
 
-	//moving this here for now
+	// moving this here for now
 	err = cache.Refresh()
 	if err != nil {
 		return
@@ -75,7 +76,7 @@ func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
 	for _, class := range instance.classes {
 		for _, action := range class.actions {
 			for _, protocol := range instance.protocols {
-				mungedName := fmt.Sprintf("%s:%s.%s~%d#%s", instance.sector, class.className, action.actionName, action.version, protocol)
+				mungedName := strings.ToLower(fmt.Sprintf("%s:%s.%s~%d#%s", instance.sector, class.className, action.actionName, action.version, protocol))
 
 				serviceProxies, ok := cache.actionIndex[mungedName]
 				if ok {
@@ -130,7 +131,7 @@ func (cache *ServiceCache) SearchByAction(sector, action string, version int, en
 	cache.cacheM.RLock()
 	defer cache.cacheM.RUnlock()
 
-	mungedName := fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope)
+	mungedName := strings.ToLower(fmt.Sprintf("%s:%s~%d#%s", sector, action, version, envelope))
 	instances = cache.actionIndex[mungedName]
 	if len(instances) == 0 {
 		err = fmt.Errorf("no instances found of %s", mungedName)
@@ -162,8 +163,10 @@ func (cache *ServiceCache) All() (proxies []*serviceProxy) {
 	return
 }
 
-var sep = []byte(`%%%`)
-var newline = []byte("\n")
+var (
+	sep     = []byte(`%%%`)
+	newline = []byte("\n")
+)
 
 func (cache *ServiceCache) Refresh() (err error) {
 	cache.cacheM.Lock()
@@ -287,8 +290,10 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 	return
 }
 
-var startCert = []byte(`-----BEGIN CERTIFICATE-----`)
-var endCert = []byte(`-----END CERTIFICATE-----`)
+var (
+	startCert = []byte(`-----BEGIN CERTIFICATE-----`)
+	endCert   = []byte(`-----END CERTIFICATE-----`)
+)
 
 func scanCertficates(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	var i int

@@ -1,8 +1,10 @@
 package scamp
 
-import "testing"
-import "bytes"
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+	"testing"
+)
 
 func TestEncodeEnvelope(t *testing.T) {
 	expected := []byte("\"json\"\n")
@@ -12,7 +14,6 @@ func TestEncodeEnvelope(t *testing.T) {
 
 	val := EnvelopeJSON
 	err := encoder.Encode(val)
-
 	if err != nil {
 		t.Errorf("got unexpected err `%s`\n", err)
 		t.FailNow()
@@ -29,9 +30,10 @@ func TestWritePacketHeader(t *testing.T) {
 		Envelope:    EnvelopeJSON,
 		MessageType: MessageTypeRequest,
 		RequestID:   1,
+		ClientID:    2,
 		Version:     1,
 	}
-	expected := []byte(`{"action":"hello.helloworld","envelope":"json","request_id":1,"ticket":"","identifying_token":"","type":"request","version":1}
+	expected := []byte(`{"action":"hello.helloworld","envelope":"json","request_id":1,"client_id":2,"ticket":"","identifying_token":"","type":"request","version":1}
 `)
 
 	buf := new(bytes.Buffer)

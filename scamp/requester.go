@@ -13,7 +13,9 @@ const (
 
 // MakeJSONRequest retreives the appropriate service proxy based on the message action, and makes a
 // JSON request.
-func MakeJSONRequest(sector, action string, version int, msg *Message) (message *Message, err error) {
+func MakeJSONRequest(
+	sector, action string, version int, msg *Message, timeoutSeconds int,
+) (message *Message, err error) {
 	var msgType string
 	if msg.Envelope == EnvelopeJSON {
 		msgType = "json"
@@ -78,7 +80,7 @@ func MakeJSONRequest(sector, action string, version int, msg *Message) (message 
 		return
 	}
 
-	timeout := time.After(300 * time.Second)
+	timeout := time.After(time.Duration(timeoutSeconds) * time.Second)
 RetryLoop:
 	for attempts := 0; attempts < MAX_RETRIES; attempts++ {
 		if responseChan == nil {

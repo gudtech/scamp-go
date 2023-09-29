@@ -1,9 +1,11 @@
 package scamp
 
-import "testing"
-import "bytes"
-import "bufio"
-import "fmt"
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"testing"
+)
 
 func TestReadHeaderPacketOK(t *testing.T) {
 	byteBuf := []byte("HEADER 1 46\r\n{\"action\":\"foo\",\"version\":1,\"envelope\":\"json\"}END\r\n")
@@ -153,12 +155,13 @@ func TestWriteHeaderPacket(t *testing.T) {
 			Action:      "hello.helloworld",
 			Envelope:    EnvelopeJSON,
 			RequestID:   1,
+			ClientID:    2,
 			Version:     1,
 			MessageType: MessageTypeRequest,
 		},
 		body: []byte(""),
 	}
-	expected := []byte("HEADER 0 127\r\n{\"action\":\"hello.helloworld\",\"envelope\":\"json\",\"request_id\":1,\"ticket\":\"\",\"identifying_token\":\"\",\"type\":\"request\",\"version\":1}\nEND\r\n")
+	expected := []byte("HEADER 0 141\r\n{\"action\":\"hello.helloworld\",\"envelope\":\"json\",\"request_id\":1,\"client_id\":2,\"ticket\":\"\",\"identifying_token\":\"\",\"type\":\"request\",\"version\":1}\nEND\r\n")
 	buf := new(bytes.Buffer)
 	bytesWritten, err := packet.Write(buf)
 	if err != nil {

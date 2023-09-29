@@ -166,7 +166,7 @@ func (serv *Service) Register(name string, callback func(*Message, *Client), opt
 	return
 }
 
-//Run starts a scamp service
+// Run starts a scamp service
 func (serv *Service) Run() {
 	err := serv.createRunningServiceFile()
 	if err != nil {
@@ -205,9 +205,15 @@ forLoop:
 	serv.clientsM.Unlock()
 
 	serv.statsCloseChan <- true
+
+	err = serv.removeRunningServiceFile()
+	if err != nil {
+		fmt.Println("could not remove liveness file: ", err)
+	}
+	fmt.Println("shutdown done")
 }
 
-//Handle handles incoming client messages received via the cient MessageChan
+// Handle handles incoming client messages received via the cient MessageChan
 func (serv *Service) Handle(client *Client) {
 	var action *ServiceAction
 HandlerLoop:
@@ -218,7 +224,12 @@ HandlerLoop:
 				break HandlerLoop
 			}
 
-			Info.Printf("Action requested (name=%s)", msg.Action)
+			Info.Printf(
+				"`%s` (request %d, client %d): Action requested",
+				msg.Action,
+				msg.RequestID,
+				msg.ClientID,
+			)
 
 			action = serv.actions[msg.Action]
 
@@ -277,11 +288,6 @@ func (serv *Service) Stop() {
 		serv.listener.Close()
 	}
 	fmt.Println("shutting down")
-	err := serv.removeRunningServiceFile()
-	if err != nil {
-		fmt.Println("could not remove liveness file: ", err)
-	}
-	fmt.Println("shutdown done")
 }
 
 // MarshalText serializes a scamp service
@@ -290,7 +296,7 @@ func (serv *Service) MarshalText() (b []byte, err error) {
 
 	serviceProxy := serviceAsServiceProxy(serv)
 
-	classRecord, err := serviceProxy.MarshalJSON() //json.Marshal(&serviceProxy) //Marshal is mangling service actions
+	classRecord, err := serviceProxy.MarshalJSON() // json.Marshal(&serviceProxy) //Marshal is mangling service actions
 	if err != nil {
 		return
 	}

@@ -1,9 +1,10 @@
 package scamp
 
-import "time"
-import "net"
-
-import "golang.org/x/net/ipv4"
+import (
+	"time"
+	"net"
+	"golang.org/x/net/ipv4"
+)
 
 // DiscoveryAnnouncer ... TODO: godoc
 type DiscoveryAnnouncer struct {

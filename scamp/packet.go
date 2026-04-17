@@ -142,7 +142,7 @@ func (pkt *Packet) Write(writer io.Writer) (written int, err error) {
 	case ACK:
 		packetTypeBytes = ackBytes
 	default:
-		err = fmt.Errorf(fmt.Sprintf("unknown packetType `%d`", pkt.packetType))
+		err = fmt.Errorf("unknown packetType `%d`", pkt.packetType)
 		return
 	}
 

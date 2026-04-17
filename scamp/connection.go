@@ -36,10 +36,27 @@ type Connection struct {
 // remote host
 func DialConnection(connspec string) (conn *Connection, err error) {
 	// Trace.Printf("Dialing connection to `%s`", connspec)
+
+	// Build cipher suite list from the current defaults plus RSA key exchange AES suites.
+	// Go 1.22+ removed RSA key exchange from the default list (GODEBUG tlsrsakey=0), but
+	// some internal Go services built with older toolchains (e.g. gt-auth-service) still
+	// require them. We add only the AES variants — RC4 and 3DES are intentionally excluded.
+	var cipherSuites []uint16
+	for _, cs := range tls.CipherSuites() {
+		cipherSuites = append(cipherSuites, cs.ID)
+	}
+	cipherSuites = append(cipherSuites,
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+	)
+
 	config := &tls.Config{
 		InsecureSkipVerify: true,
+		CipherSuites:       cipherSuites,
 	}
-	config.BuildNameToCertificate()
+	config.BuildNameToCertificate() //nolint:staticcheck // deprecated no-op, preserved to minimise diff
 
 	tlsConn, err := tls.Dial("tcp", connspec, config)
 	if err != nil {

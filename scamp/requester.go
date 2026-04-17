@@ -47,8 +47,14 @@ func MakeJSONRequest(
 	var clients []*Client
 	for _, serviceProxy := range serviceProxies {
 		if serviceProxy != nil {
-			client, err := serviceProxy.GetClient()
-			if err != nil || client == nil {
+			client, clientErr := serviceProxy.GetClient()
+			if clientErr != nil {
+				Error.Printf("GetClient failed for %s (%s): %s", serviceProxy.Ident(), serviceProxy.ConnSpec(), clientErr)
+				err = clientErr
+				continue
+			}
+			if client == nil {
+				Error.Printf("GetClient returned nil client for %s (%s)", serviceProxy.Ident(), serviceProxy.ConnSpec())
 				continue
 			}
 

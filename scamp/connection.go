@@ -56,6 +56,7 @@ func DialConnection(connspec string) (conn *Connection, err error) {
 		InsecureSkipVerify: true,
 		CipherSuites:       cipherSuites,
 	}
+	config.BuildNameToCertificate() //nolint:staticcheck // deprecated no-op, preserved to minimise diff
 
 	tlsConn, err := tls.Dial("tcp", connspec, config)
 	if err != nil {

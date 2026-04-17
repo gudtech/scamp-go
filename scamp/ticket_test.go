@@ -22,7 +22,7 @@ func TestTicket(t *testing.T) {
 	t.Logf("pem path: %v", pemPath)
 	good, err := ioutil.ReadFile(dispatchPath)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 
 	if good == nil {

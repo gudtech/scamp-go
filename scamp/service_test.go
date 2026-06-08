@@ -1,12 +1,11 @@
 package scamp
 
 import "testing"
-import "time"
 import "bytes"
 import "encoding/json"
 import "net"
 import "crypto/tls"
-import "io/ioutil"
+import "os"
 
 // TODO: fix Session API (aka, simplify design by dropping it)
 func TestServiceHandlesRequest(t *testing.T) {
@@ -22,66 +21,6 @@ func TestServiceHandlesRequest(t *testing.T) {
 
 }
 
-func spawnTestService(hasStopped chan bool) (service *Service) {
-	service, err := NewService("test", "127.0.0.1:40400", "helloworld")
-	if err != nil {
-		Error.Fatalf("error creating new service: `%s`", err)
-	}
-	service.Register("helloworld.hello", func(message *Message, client *Client) {
-		panic("what")
-		// if len(req.Blob) > 0 {
-		// 	Info.Printf("helloworld had data: %s", req.Blob)
-		// } else {
-		// 	Trace.Printf("helloworld was called without data")
-		// }
-
-		// err = sess.Send(Reply{
-		// 	Blob: []byte("sup"),
-		// })
-		// if err != nil {
-		// 	Error.Printf("error while sending reply: `%s`. continuing.", err)
-		// 	return
-		// }
-		// Trace.Printf("successfully responded to hello world")
-	}, nil)
-
-	go func() {
-		service.Run()
-		hasStopped <- true
-	}()
-	return
-}
-
-func connectToTestService(t *testing.T) {
-	client, err := Dial("127.0.0.1:30100")
-	defer client.Close()
-
-	if err != nil {
-		Error.Fatalf("could not connect! `%s`\n", err)
-	}
-
-	responseChan, err := client.Send(&Message{
-		Action:   "helloworld.hello",
-		Envelope: EnvelopeJSON,
-		Version:  1,
-	})
-	if err != nil {
-		Error.Fatalf("error initiating session: `%s`", err)
-		t.FailNow()
-	}
-
-	select {
-	case msg := <-responseChan:
-		if !bytes.Equal(msg.Bytes(), []byte("sup")) {
-			t.Fatalf("did not get expected response `sup`")
-		}
-	case <-time.After(500 * time.Millisecond):
-		t.Fatalf("timed out waiting for response")
-	}
-
-	return
-}
-
 // TODO: I'm cutting some corners in this test, it tests two complicated things at once:
 // 1. Copying `Service` properties to new `ServiceProxy`
 // 2. Marshaling `ServiceProxy` to announce format
@@ -95,7 +34,7 @@ func TestServiceToProxyMarshal(t *testing.T) {
 		sector:       "main",
 		actions:      make(map[string]*ServiceAction),
 	}
-	s.Register("Logging.info", func(_ *Message, _ *Client) {}, nil)
+	_ = s.Register("Logging.info", func(_ *Message, _ *Client) {}, nil)
 
 	serviceProxy := serviceAsServiceProxy(&s)
 	serviceProxy.timestamp = 10
@@ -120,7 +59,7 @@ func TestFullServiceMarshal(t *testing.T) {
 		t.Fatalf("could not load fixture keypair: `%s`", err)
 	}
 
-	encodedCert, err := ioutil.ReadFile("./../fixtures/sample.crt")
+	encodedCert, err := os.ReadFile("./../fixtures/sample.crt")
 	if err != nil {
 		t.Fatalf("could not load fixture certificate")
 	}
@@ -137,7 +76,7 @@ func TestFullServiceMarshal(t *testing.T) {
 		pemCert:      encodedCert,
 		cert:         cert,
 	}
-	s.Register("Logging.info", func(_ *Message, _ *Client) {}, nil)
+	_ = s.Register("Logging.info", func(_ *Message, _ *Client) {}, nil)
 
 	// TODO: confirm output of marshalling the payload.
 	_, err = s.MarshalText()

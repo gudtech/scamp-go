@@ -7,7 +7,7 @@ import (
 )
 
 func TestAuthorizedServiceSpec(t *testing.T) {
-	Initialize("/etc/SCAMP/soa.conf", RefresherOptions{
+	_ = Initialize("/etc/SCAMP/soa.conf", RefresherOptions{
 		Reactive: true,
 	})
 	cache := NewAuthorizedServicesCache()

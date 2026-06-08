@@ -48,8 +48,6 @@ func (cache *ServiceCache) Store(instance *serviceProxy) {
 	defer cache.cacheM.Unlock()
 
 	cache.storeNoLock(instance)
-
-	return
 }
 
 func (cache *ServiceCache) ActionList() []string {
@@ -89,8 +87,6 @@ func (cache *ServiceCache) storeNoLock(instance *serviceProxy) {
 			}
 		}
 	}
-
-	return
 }
 
 func (cache *ServiceCache) removeNoLock(instance *serviceProxy) (err error) {
@@ -184,7 +180,7 @@ func (cache *ServiceCache) Refresh() (err error) {
 	if err != nil {
 		return
 	}
-	defer cacheHandle.Close()
+	defer func() { _ = cacheHandle.Close() }()
 
 	s := bufio.NewScanner(cacheHandle)
 	err = cache.DoScan(s)
@@ -196,7 +192,7 @@ func (cache *ServiceCache) Refresh() (err error) {
 }
 
 func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
-	cache.clearNoLock()
+	_ = cache.clearNoLock()
 
 	// var entries int = 0
 	// Scan through buf by lines according to this basic ABNF
@@ -288,30 +284,6 @@ func (cache *ServiceCache) DoScan(s *bufio.Scanner) (err error) {
 	}
 
 	return
-}
-
-var (
-	startCert = []byte(`-----BEGIN CERTIFICATE-----`)
-	endCert   = []byte(`-----END CERTIFICATE-----`)
-)
-
-func scanCertficates(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	var i int
-
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-
-	// assert cert start line
-	if i = bytes.Index(data, startCert); i == -1 {
-		return 0, nil, nil
-	}
-
-	// assert end line, consume if present
-	if i = bytes.Index(data, endCert); i >= 0 {
-		return i + len(endCert), data[0 : i+len(endCert)], nil
-	}
-	return 0, nil, nil
 }
 
 // RETRY LOGIC

@@ -17,11 +17,12 @@ func MakeJSONRequest(
 	sector, action string, version int, msg *Message, timeoutSeconds int,
 ) (message *Message, err error) {
 	var msgType string
-	if msg.Envelope == EnvelopeJSON {
+	switch msg.Envelope {
+	case EnvelopeJSON:
 		msgType = "json"
-	} else if msg.Envelope == EnvelopeJSONSTORE {
+	case EnvelopeJSONSTORE:
 		msgType = "jsonstore"
-	} else {
+	default:
 		err = fmt.Errorf("unsupported envelope type: `%d`", msg.Envelope)
 		return
 	}
@@ -82,7 +83,7 @@ func MakeJSONRequest(
 	}
 
 	if !sent {
-		err = fmt.Errorf("Request failed: %s.%s not found: %s", sector, action, err)
+		err = fmt.Errorf("request failed: %s.%s not found: %s", sector, action, err)
 		return
 	}
 

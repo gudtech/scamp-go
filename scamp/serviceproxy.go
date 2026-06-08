@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"log"
 
 	"strconv"
 
@@ -14,7 +13,6 @@ import (
 
 	"sync"
 
-	"net"
 	u "net/url"
 )
 
@@ -82,36 +80,6 @@ func (sp *serviceProxy) Ident() string {
 	return sp.ident
 }
 
-func (sp *serviceProxy) baseIdent() string {
-	baseAndRest := strings.SplitN(sp.ident, ":", 2)
-	if len(baseAndRest) != 2 {
-		return sp.ident
-	}
-	return baseAndRest[0]
-}
-
-func (sp *serviceProxy) shortHostname() string {
-	url, err := u.Parse(sp.connspec)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	hostParts := strings.Split(url.Host, ":")
-	if len(hostParts) != 2 {
-		return sp.connspec
-	}
-	host := hostParts[0]
-
-	names, err := net.LookupAddr(host)
-	if err != nil {
-		return host
-	} else if len(names) == 0 {
-		return host
-	}
-
-	return names[0]
-}
-
 func (sp *serviceProxy) ConnSpec() string {
 	return sp.connspec
 }
@@ -159,7 +127,7 @@ func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
 	sp.weight = 1
 	sp.announceInterval = defaultAnnounceInterval * 500
 	sp.connspec = fmt.Sprintf("beepish+tls://%s:%d", serv.listenerIP.To4().String(), serv.listenerPort)
-	sp.protocols = make([]string, 1, 1)
+	sp.protocols = make([]string, 1)
 	sp.protocols[0] = "json"
 	sp.classes = make([]serviceProxyClass, 0)
 	sp.rawClassRecords = []byte("rawClassRecords")
@@ -175,7 +143,7 @@ func serviceAsServiceProxy(serv *Service) (sp *serviceProxy) {
 		}
 		className := classAndActionName[0:actionDotIndex]
 
-		actionName := classAndActionName[actionDotIndex+1 : len(classAndActionName)]
+		actionName := classAndActionName[actionDotIndex+1:]
 
 		newServiceProxyClass := serviceProxyClass{
 			className: className,
@@ -214,10 +182,6 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 	if err != nil {
 		return
 	}
-	if len(classRecords) != 9 {
-		err = fmt.Errorf("expected 9 entries in class record, got %d", len(classRecords))
-	}
-
 	// OMG, position-based, heterogenously typed values in an array suck to deal with.
 	err = json.Unmarshal(classRecords[0], &sp.version)
 	if err != nil {
@@ -281,7 +245,7 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 	if err != nil {
 		return
 	}
-	classes := make([]serviceProxyClass, len(rawClasses), len(rawClasses))
+	classes := make([]serviceProxyClass, len(rawClasses))
 	sp.classes = classes
 
 	for i, rawClass := range rawClasses {
@@ -296,7 +260,7 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 		}
 
 		rawActionsSlice := rawClass[1:]
-		classes[i].actions = make([]actionDescription, len(rawActionsSlice), len(rawActionsSlice))
+		classes[i].actions = make([]actionDescription, len(rawActionsSlice))
 
 		for j, rawActionSpec := range rawActionsSlice {
 			var actionsRawMessages []json.RawMessage
@@ -304,8 +268,6 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 			if err != nil {
 				Error.Printf("could not parse rawActionSpec: %s", rawActionSpec)
 				return nil, err
-			} else if len(actionsRawMessages) != 2 && len(actionsRawMessages) != 3 {
-				err = fmt.Errorf("expected action spec to have 2 or 3 entries. got `%s` (%d)", actionsRawMessages, len(actionsRawMessages))
 			}
 
 			err = json.Unmarshal(actionsRawMessages[0], &classes[i].actions[j].actionName)
@@ -407,12 +369,12 @@ func (sp *serviceProxy) MarshalJSON() (b []byte, err error) {
 	//
 	// Serialize actions in this format:
 	// 	["bgdispatcher",["poll","",1],["reboot","",1],["report","",1]]
-	classSpecs := make([][]interface{}, len(sp.classes), len(sp.classes))
+	classSpecs := make([][]interface{}, len(sp.classes))
 	for i, class := range sp.classes {
-		entry := make([]interface{}, 1+len(class.actions), 1+len(class.actions))
+		entry := make([]interface{}, 1+len(class.actions))
 		entry[0] = class.className
 		for j, action := range class.actions {
-			actions := make([]interface{}, 3, 3)
+			actions := make([]interface{}, 3)
 
 			actionNameCopy := make([]byte, len(action.actionName))
 			copy(actionNameCopy, action.actionName)

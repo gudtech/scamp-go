@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -81,7 +80,7 @@ func NewService(sector string, serviceSpec string, humanName string) (*Service, 
 	}
 
 	// Load certificate as bytes
-	pemCert, err := ioutil.ReadFile(string(crtPath))
+	pemCert, err := os.ReadFile(string(crtPath))
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +241,7 @@ HandlerLoop:
 				reply.SetMessageType(MessageTypeReply)
 				reply.SetEnvelope(EnvelopeJSON)
 				reply.SetRequestID(msg.RequestID)
-				reply.Write([]byte(`{"error": "no such action"}`))
+				_, _ = reply.Write([]byte(`{"error": "no such action"}`))
 				_, err := client.Send(reply)
 				if err != nil {
 					client.Close()
@@ -255,7 +254,7 @@ HandlerLoop:
 	}
 
 	client.Close()
-	serv.RemoveClient(client)
+	_ = serv.RemoveClient(client)
 }
 
 // RemoveClient removes a client from the scamp service
@@ -285,7 +284,7 @@ func (serv *Service) RemoveClient(client *Client) (err error) {
 // Stop closes the service's net.Listener
 func (serv *Service) Stop() {
 	if serv.listener != nil {
-		serv.listener.Close()
+		_ = serv.listener.Close()
 	}
 	fmt.Println("shutting down")
 }
@@ -348,10 +347,9 @@ func stringToRows(input string, rowlen int) (output []string) {
 }
 
 func (serv *Service) generateRandomName() {
-	randBytes := make([]byte, 18, 18)
-	read, err := rand.Read(randBytes)
+	randBytes := make([]byte, 18)
+	_, err := rand.Read(randBytes)
 	if err != nil {
-		err = fmt.Errorf("could not generate all rand bytes needed. only read %d of 18", read)
 		return
 	}
 	base64RandBytes := base64.StdEncoding.EncodeToString(randBytes)
@@ -360,7 +358,7 @@ func (serv *Service) generateRandomName() {
 	buffer.WriteString(serv.humanName)
 	buffer.WriteString(":")
 	buffer.WriteString(base64RandBytes[0:])
-	serv.name = string(buffer.Bytes())
+	serv.name = buffer.String()
 }
 
 func (serv *Service) createRunningServiceFile() error {
@@ -383,7 +381,7 @@ func (serv *Service) createRunningServiceFile() error {
 	if createErr != nil {
 		return createErr
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	return nil
 }
 
@@ -404,7 +402,7 @@ func (serv *Service) removeRunningServiceFile() error {
 }
 
 func (serv *Service) runningServiceFilePath(runningServicesDirPath []byte) string {
-	name := strings.Replace(serv.name, "/", "_", -1)
+	name := strings.ReplaceAll(serv.name, "/", "_")
 
 	return string(runningServicesDirPath) + "/" + name
 }

@@ -58,11 +58,9 @@ func TestNewServiceProxy(t *testing.T) {
 		t.Errorf("something mucked with the serviceProxyClassRecordsRaw")
 	}
 
-	err = proxy.Validate()
-	if err != nil {
-		// TODO need to manually resign our announce packet. Sigh.
-		// t.Errorf("failed to validate: `%s`", err)
-	}
+	// TODO need to manually resign our announce packet. Sigh.
+	// Validation error is intentionally ignored here.
+	_ = proxy.Validate()
 }
 
 func TestServiceProxySerialize(t *testing.T) {

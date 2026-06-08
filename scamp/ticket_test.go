@@ -1,7 +1,7 @@
 package scamp
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -20,7 +20,7 @@ func TestTicket(t *testing.T) {
 	t.Logf("basepath: %v", basePath)
 	t.Logf("fixtures path: %v", fixturesPath)
 	t.Logf("pem path: %v", pemPath)
-	good, err := ioutil.ReadFile(dispatchPath)
+	good, err := os.ReadFile(dispatchPath)
 	if err != nil {
 		t.Fatalf("%s", err.Error())
 	}

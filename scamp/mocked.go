@@ -22,12 +22,12 @@ func (r *mockedScampRequester) getMockedResponse(action string) (*Message, error
 	response, ok := r.mockRequests[action]
 
 	if !ok || (response == "") {
-		return nil, fmt.Errorf("No response was found for action: %s", action)
+		return nil, fmt.Errorf("no response was found for action: %s", action)
 	}
 
 	respMessage := NewResponseMessage()
 	respMessage.SetAction(action)
-	respMessage.Write([]byte(response))
+	_, _ = respMessage.Write([]byte(response))
 
 	return respMessage, nil
 }
@@ -46,7 +46,7 @@ func (r *mockedScampRequester) MakeJSONRequest(ctx context.Context, mssg *Messag
 	response, err := r.getMockedResponse(mssg.Action)
 
 	if err != nil {
-		err = fmt.Errorf("Error getting mocked response: %s", err)
+		err = fmt.Errorf("error getting mocked response: %s", err)
 		r.addError(err)
 		return nil, err
 	}

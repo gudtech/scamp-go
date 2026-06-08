@@ -90,13 +90,13 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 	// Use the msg len to consume the rest of the connection
 	// Trace.Printf("(%v) reading rest of packet body (%d bytes)", packetSeenSinceBoot, bodyBytesNeeded)
 	pkt.body = make([]byte, bodyBytesNeeded)
-	bytesRead, err := io.ReadFull(reader, pkt.body)
+	_, err = io.ReadFull(reader, pkt.body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: `%s`", err)
 	}
 
 	theRest := make([]byte, theRestSize)
-	bytesRead, err = io.ReadFull(reader, theRest)
+	bytesRead, _ := io.ReadFull(reader, theRest)
 	if bytesRead != theRestSize || !bytes.Equal(theRest, []byte("END\r\n")) {
 		return nil, fmt.Errorf("packet was missing trailing bytes")
 	}
@@ -114,7 +114,7 @@ func ReadPacket(reader *bufio.ReadWriter) (pkt *Packet, err error) {
 	return pkt, nil
 }
 
-//TODO: why are we unmarshalling pkt.body here?
+// TODO: why are we unmarshalling pkt.body here?
 func (pkt *Packet) parseHeader() (err error) {
 	// Trace.Printf("PARSING HEADER (%s)", pkt.body)
 	err = json.Unmarshal(pkt.body, &pkt.packetHeader)

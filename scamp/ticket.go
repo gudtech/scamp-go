@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,7 +45,7 @@ func VerifyTicket(unparsedTicket string, keyPath string) (*Ticket, error) {
 	parts = parts[:len(parts)-1]
 
 	readVerifyKey.Do(func() {
-		vkStr, err := ioutil.ReadFile(keyPath)
+		vkStr, err := os.ReadFile(keyPath)
 		if err != nil {
 			panic(err)
 		}

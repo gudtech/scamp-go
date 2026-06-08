@@ -53,7 +53,7 @@ func NewClient(conn *Connection, clientType string) (client *Client) {
 
 	// grNum++
 	// go client.splitReqsAndReps(grNum, clientID)
-	go client.splitReqsAndReps()
+	go func() { _ = client.splitReqsAndReps() }()
 
 	return
 }
@@ -84,9 +84,8 @@ func (client *Client) Send(msg *Message) (responseChan chan *Message, err error)
 		client.openRepliesLock.Lock()
 		client.openReplies[msg.RequestID] = responseChan
 		client.openRepliesLock.Unlock()
-	} else {
-		// Trace.Printf("sending reply so done with this message")
 	}
+	// else: sending reply so done with this message
 
 	return
 }
@@ -114,7 +113,7 @@ func (client *Client) Close() {
 	// Notify wrapper service that we're dead
 	if client.serv != nil {
 		// Trace.Printf("removing client from service...")
-		client.serv.RemoveClient(client)
+		_ = client.serv.RemoveClient(client)
 	}
 
 	// Trace.Printf("marking client as closed...")
@@ -129,46 +128,40 @@ func (client *Client) closeConnection(conn *Connection) {
 	client.conn = nil
 }
 
-//func (client *Client) splitReqsAndReps(grNum, clientID int) (err error) {
+// func (client *Client) splitReqsAndReps(grNum, clientID int) (err error) {
 func (client *Client) splitReqsAndReps() (err error) {
 	var replyChan chan *Message
 
-forLoop:
-	for {
+	// Ranges until client.conn.msgs is closed (equivalent to the previous
+	// for{ select{ case msg, ok := <-msgs } } with break-on-!ok).
+	for message := range client.conn.msgs {
 		// Trace.Printf("Entering forLoop splitReqsAndReps")
-		select {
-		case message, ok := <-client.conn.msgs:
-			if !ok {
-				// Trace.Printf("client.conn.msgs... CLOSED!")
-				break forLoop
-			}
-			if message == nil {
-				continue
-			}
+		if message == nil {
+			continue
+		}
 
-			// Trace.Printf("Splitting incoming message to reqs and reps")
+		// Trace.Printf("Splitting incoming message to reqs and reps")
 
-			if message.MessageType == MessageTypeRequest {
-				// interesting things happen if there are outstanding messages
-				// and the client closes
-				client.requests <- message
-			} else if message.MessageType == MessageTypeReply {
-				client.openRepliesLock.Lock()
-				replyChan = client.openReplies[message.RequestID]
-				if replyChan == nil {
-					// Error.Printf("got an unexpected reply for requestId: %d. Skipping.", message.RequestID)
-					client.openRepliesLock.Unlock()
-					continue
-				}
-
-				delete(client.openReplies, message.RequestID)
+		if message.MessageType == MessageTypeRequest {
+			// interesting things happen if there are outstanding messages
+			// and the client closes
+			client.requests <- message
+		} else if message.MessageType == MessageTypeReply {
+			client.openRepliesLock.Lock()
+			replyChan = client.openReplies[message.RequestID]
+			if replyChan == nil {
+				// Error.Printf("got an unexpected reply for requestId: %d. Skipping.", message.RequestID)
 				client.openRepliesLock.Unlock()
-
-				replyChan <- message
-			} else {
-				// Trace.Printf("Could not handle msg, it's neither req or reply. Skipping.")
 				continue
 			}
+
+			delete(client.openReplies, message.RequestID)
+			client.openRepliesLock.Unlock()
+
+			replyChan <- message
+		} else {
+			// Trace.Printf("Could not handle msg, it's neither req or reply. Skipping.")
+			continue
 		}
 	}
 

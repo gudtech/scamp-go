@@ -1,9 +1,9 @@
 package scamp
 
 import (
-	"time"
-	"net"
 	"golang.org/x/net/ipv4"
+	"net"
+	"time"
 )
 
 // DiscoveryAnnouncer ... TODO: godoc
@@ -17,7 +17,7 @@ type DiscoveryAnnouncer struct {
 // NewDiscoveryAnnouncer creates a DiscoveryAnnouncer
 func NewDiscoveryAnnouncer() (announcer *DiscoveryAnnouncer, err error) {
 	announcer = new(DiscoveryAnnouncer)
-	announcer.services = make([]*Service, 0, 0)
+	announcer.services = make([]*Service, 0)
 	announcer.stopSig = make(chan bool)
 
 	config := DefaultConfig()
@@ -52,7 +52,7 @@ func (announcer *DiscoveryAnnouncer) AnnounceLoop() {
 		case <-announcer.stopSig:
 			return
 		default:
-			announcer.doAnnounce()
+			_ = announcer.doAnnounce()
 		}
 
 		time.Sleep(time.Duration(defaultAnnounceInterval) * time.Second)

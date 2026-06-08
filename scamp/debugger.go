@@ -5,7 +5,6 @@ import (
 
 	"fmt"
 
-	"io"
 	"os"
 
 	"bytes"
@@ -23,8 +22,7 @@ var enableWriteTee = false
 var writeTeeTargetPath = "/tmp/scamp_proto.bin"
 
 type scampDebugger struct {
-	file          *os.File
-	wrappedWriter io.Writer
+	file *os.File
 }
 
 var scampDebuggerID = uint64(0)
@@ -76,7 +74,7 @@ func (handle *scampDebugger) ReadWriter(p []byte) (n int, err error) {
 }
 
 func scampDebuggerRandomString() string {
-	randBytes := make([]byte, 4, 4)
+	randBytes := make([]byte, 4)
 	_, err := rand.Read(randBytes)
 	if err != nil {
 		panic("shouldn't happen")
@@ -85,7 +83,7 @@ func scampDebuggerRandomString() string {
 
 	var buffer bytes.Buffer
 	buffer.WriteString(base64RandBytes[0:])
-	return string(buffer.Bytes())
+	return buffer.String()
 }
 
 type scampDebuggerReader struct {

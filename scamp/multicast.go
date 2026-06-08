@@ -7,19 +7,6 @@ import (
 
 import "golang.org/x/net/ipv4"
 
-func loopbackInterface() (lo *net.Interface, err error) {
-	lo, err = net.InterfaceByName("lo0")
-	if err != nil {
-		lo, err = net.InterfaceByName("lo")
-		if err != nil {
-			Error.Printf("could not find `lo0` or `lo`: `%s`", err)
-			return
-		}
-	}
-
-	return
-}
-
 func localMulticastPacketConn(config *Config) (conn *ipv4.PacketConn, err error) {
 	// TODO fundamentally change how multicast is sent. I can't get the API to work
 	// without creating a listener socket first but I shouldn't need it.
@@ -47,7 +34,7 @@ func localMulticastPacketConn(config *Config) (conn *ipv4.PacketConn, err error)
 		Error.Printf("could not get eth0 interface")
 		return
 	} else {
-		conn.SetMulticastInterface(ifEth0)
+		_ = conn.SetMulticastInterface(ifEth0)
 	}
 
 	return

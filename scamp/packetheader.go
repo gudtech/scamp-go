@@ -74,7 +74,7 @@ func (value *flexInt) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &stringValue); err == nil {
 		v, err := strconv.Atoi(stringValue)
 		if err != nil {
-			return fmt.Errorf("Could not parse string `\"%s\"` as int value", stringValue)
+			return fmt.Errorf("could not parse string `\"%s\"` as int value", stringValue)
 		}
 
 		*value = flexInt(v)
@@ -88,7 +88,7 @@ func (value *flexInt) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	return fmt.Errorf("Could not parse data `%s` as int value", data)
+	return fmt.Errorf("could not parse data `%s` as int value", data)
 }
 
 /******

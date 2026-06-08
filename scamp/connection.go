@@ -104,7 +104,7 @@ func NewConnection(tlsConn *tls.Conn, connType string) (conn *Connection) {
 	conn.msgs = make(chan *Message)
 
 	conn.isClosed = false
-	go conn.packetReader()
+	go func() { _ = conn.packetReader() }()
 
 	return
 }
@@ -158,8 +158,8 @@ PacketReaderLoop:
 func (conn *Connection) routePacket(pkt *Packet) (err error) {
 	var msg *Message
 	// Trace.Printf("routing packet...")
-	switch {
-	case pkt.packetType == HEADER:
+	switch pkt.packetType {
+	case HEADER:
 		// Trace.Printf("HEADER")
 
 		incomingmsgno := atomic.LoadUint64((*uint64)(&conn.incomingmsgno))
@@ -171,7 +171,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 
 		msg = conn.pktToMsg[incomingMsgNo(pkt.msgNo)]
 		if msg != nil {
-			err = fmt.Errorf("Bad HEADER; already tracking msgno %d", pkt.msgNo)
+			err = fmt.Errorf("bad HEADER; already tracking msgno %d", pkt.msgNo)
 			Error.Printf("%s", err)
 			return err
 		}
@@ -195,7 +195,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 		// conn.incomingNotifiers[pktMsgNo] = &make((chan *Message),1)
 
 		atomic.AddUint64((*uint64)(&conn.incomingmsgno), 1)
-	case pkt.packetType == DATA:
+	case DATA:
 		// Trace.Printf("DATA")
 		// Append data
 		// Verify we are tracking that message
@@ -204,10 +204,10 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 			return fmt.Errorf("not tracking message number %d", pkt.msgNo)
 		}
 
-		msg.Write(pkt.body)
-		conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
+		_, _ = msg.Write(pkt.body)
+		_ = conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
 
-	case pkt.packetType == EOF:
+	case EOF:
 		// Trace.Printf("EOF")
 		// Deliver message
 		msg = conn.pktToMsg[incomingMsgNo(pkt.msgNo)]
@@ -222,7 +222,7 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 		// Trace.Printf("Adding message to channel:")
 		conn.msgs <- msg
 
-	case pkt.packetType == TXERR:
+	case TXERR:
 		msg = conn.pktToMsg[incomingMsgNo(pkt.msgNo)]
 		if msg == nil {
 			err = fmt.Errorf("cannot process EOF for unknown msgno %d", pkt.msgNo)
@@ -237,13 +237,13 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 		} else {
 			msg.Error = "There was an unkown error with the connection"
 		}
-		msg.Write(pkt.body)
-		conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
+		_, _ = msg.Write(pkt.body)
+		_ = conn.ackBytes(incomingMsgNo(pkt.msgNo), msg.BytesWritten())
 
 		delete(conn.pktToMsg, incomingMsgNo(pkt.msgNo))
 		conn.msgs <- msg
 
-	case pkt.packetType == ACK:
+	case ACK:
 		// Trace.Printf("ACK `%v` for msgno %v", len(pkt.body), pkt.msgNo)
 		// panic("Xavier needs to support this")
 		// TODO: Add bytes to message stream tally
@@ -294,17 +294,18 @@ func (conn *Connection) Send(msg *Message) (err error) {
 				if err != nil {
 					// temprarily
 					if strings.Contains(err.Error(), "use of closed connection") {
-						err = fmt.Errorf("connection closed")
+						// NOTE: this error is intentionally swallowed (matches
+						// pre-existing behavior); the outer Send returns nil here.
 						break
 					}
 					// TODO: attempt to reconnect
 					if strings.Contains(err.Error(), "broken pipe") {
-						err = fmt.Errorf("connection closed: %s", err)
+						// NOTE: error intentionally swallowed (pre-existing behavior).
 						break
 					}
 
 					if retries > RetryLimit {
-						return fmt.Errorf("Retried too many times: %s", err)
+						return fmt.Errorf("retried too many times: %s", err)
 					}
 
 					Error.Printf("error writing packet: %s (retrying)", err)
@@ -316,7 +317,7 @@ func (conn *Connection) Send(msg *Message) (err error) {
 		}
 
 	}
-	conn.readWriter.Flush()
+	_ = conn.readWriter.Flush()
 
 	return
 }
@@ -344,7 +345,7 @@ func (conn *Connection) ackBytes(msgno incomingMsgNo, unackedByteCount uint64) (
 		return err
 	}
 
-	conn.readWriter.Flush()
+	_ = conn.readWriter.Flush()
 
 	return
 }
@@ -360,7 +361,7 @@ func (conn *Connection) Close() {
 
 	// Trace.Printf("connection is closing")
 
-	conn.conn.Close()
+	_ = conn.conn.Close()
 	// conn.conn = nil
 
 	// conn.readWriterLock.Lock()

@@ -39,10 +39,8 @@ func (cache *AuthorizedServicesCache) LoadAuthorizedServices(s *bufio.Scanner) (
 			continue
 		}
 
-		_, err = NewAuthorizedServicesSpec(s.Bytes())
-		if err != nil {
-			// Trace.Printf("Error creating AuthorizedServicesCache: %s", err)
-		}
+		// Errors are intentionally ignored here (pre-existing behavior).
+		_, _ = NewAuthorizedServicesSpec(s.Bytes())
 
 		count = count + 1
 	}

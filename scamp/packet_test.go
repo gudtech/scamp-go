@@ -91,7 +91,7 @@ func TestFailGarbage(t *testing.T) {
 }
 
 func TestFailHeaderParams(t *testing.T) {
-	Initialize("/etc/SCAMP/soa.conf", RefresherOptions{
+	_ = Initialize("/etc/SCAMP/soa.conf", RefresherOptions{
 		Reactive: true,
 	})
 	byteReader := bufio.NewReader(bytes.NewReader([]byte("HEADER 1\r\n{\"action\":\"foo\",\"version\":1,\"envelope\":\"json\"}END\r\n")))

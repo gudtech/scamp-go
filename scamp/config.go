@@ -26,10 +26,7 @@ var (
 // DefaultConfigPath is the path at which the library will, by default, look for its configuration.
 var DefaultConfigPath = "/etc/SCAMP/soa.conf"
 
-var (
-	configLine   = regexp.MustCompile(`^\s*([\S^=]+)\s*=\s*([\S]+)`)
-	globalConfig *Config
-)
+var configLine = regexp.MustCompile(`^\s*([\S^=]+)\s*=\s*([\S]+)`)
 
 var (
 	defaultGroupIP   = net.IPv4(239, 63, 248, 106)
@@ -96,7 +93,7 @@ func (conf *Config) Load(configPath string) (err error) {
 		return
 	}
 	scanner := bufio.NewScanner(file)
-	conf.doLoad(scanner)
+	_ = conf.doLoad(scanner)
 
 	return
 }

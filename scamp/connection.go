@@ -3,6 +3,7 @@ package scamp
 import (
 	"bufio"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -254,13 +255,17 @@ func (conn *Connection) routePacket(pkt *Packet) (err error) {
 
 const RetryLimit = 50
 
+// ErrConnectionClosed is returned by Send when a packet write fails because the
+// underlying connection is closed or broken; callers should reconnect/retry.
+var ErrConnectionClosed = errors.New("scamp: connection closed or broken during send")
+
 // Send sends a scamp message using the current *Connection
 func (conn *Connection) Send(msg *Message) (err error) {
 	if conn == nil {
 		return fmt.Errorf("cannot send on nil connection")
 	}
 	if conn.isClosed {
-		err = fmt.Errorf("connection already closed")
+		return fmt.Errorf("connection already closed")
 	}
 
 	conn.readWriterLock.Lock()
@@ -292,16 +297,12 @@ func (conn *Connection) Send(msg *Message) (err error) {
 				_, err := pkt.Write(conn.readWriter)
 				// TODO: should we actually blacklist this error?
 				if err != nil {
-					// temprarily
-					if strings.Contains(err.Error(), "use of closed connection") {
-						// NOTE: this error is intentionally swallowed (matches
-						// pre-existing behavior); the outer Send returns nil here.
-						break
-					}
-					// TODO: attempt to reconnect
-					if strings.Contains(err.Error(), "broken pipe") {
-						// NOTE: error intentionally swallowed (pre-existing behavior).
-						break
+					// A closed or broken connection won't recover by retrying;
+					// propagate so callers can detect it and reconnect/retry
+					// (previously these were swallowed and Send returned nil).
+					if strings.Contains(err.Error(), "use of closed connection") ||
+						strings.Contains(err.Error(), "broken pipe") {
+						return fmt.Errorf("%w: %v", ErrConnectionClosed, err)
 					}
 
 					if retries > RetryLimit {

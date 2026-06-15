@@ -182,6 +182,9 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 	if err != nil {
 		return
 	}
+	if len(classRecords) < 8 {
+		return nil, fmt.Errorf("malformed announce: expected at least 8 class records, got %d", len(classRecords))
+	}
 	// OMG, position-based, heterogenously typed values in an array suck to deal with.
 	err = json.Unmarshal(classRecords[0], &sp.version)
 	if err != nil {
@@ -268,6 +271,10 @@ func newServiceProxy(classRecordsRaw []byte, certRaw []byte, sigRaw []byte) (sp 
 			if err != nil {
 				Error.Printf("could not parse rawActionSpec: %s", rawActionSpec)
 				return nil, err
+			}
+
+			if len(actionsRawMessages) < 2 {
+				return nil, fmt.Errorf("malformed announce: action spec needs at least 2 entries, got %d", len(actionsRawMessages))
 			}
 
 			err = json.Unmarshal(actionsRawMessages[0], &classes[i].actions[j].actionName)
